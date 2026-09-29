@@ -1,4 +1,4 @@
-import { AnimatePresence, animate, motion, useDragControls, useInView, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, animate, motion, useInView, useReducedMotion } from 'framer-motion';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Crosshair, Instagram, MapPin, Menu, MessageCircle, Navigation, Plus, Star, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { gym, type Modality } from '@/data/gym';
@@ -13,33 +13,6 @@ const navLinks = [
   ['Visite', '#localizacao'],
 ] as const;
 
-/* ---------- Utilidades ---------- */
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const update = () => setMatches(mql.matches);
-    update();
-    mql.addEventListener('change', update);
-    return () => mql.removeEventListener('change', update);
-  }, [query]);
-  return matches;
-}
-
-/* Imagens leves no celular: pede à CDN (Pexels) a largura certa em vez de sempre 2000px */
-function sized(url: string, width: number) {
-  if (!url.includes('images.pexels.com')) return url;
-  const u = new URL(url);
-  u.searchParams.delete('h');
-  u.searchParams.set('w', String(width));
-  return u.toString();
-}
-function srcSetOf(url: string, widths: number[] = [480, 800, 1200]) {
-  if (!url.includes('images.pexels.com')) return undefined;
-  return widths.map((w) => `${sized(url, w)} ${w}w`).join(', ');
-}
-const halfWidth = '(max-width: 767px) 100vw, 50vw';
-
 /* ---------- WhatsApp ---------- */
 function whatsappUrl(message: string) {
   return `https://wa.me/${gym.whatsapp}?text=${encodeURIComponent(message)}`;
@@ -53,8 +26,7 @@ function WhatsAppButton({ label = 'Agendar aula experimental', dark = false, mes
 function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
   const reduce = useReducedMotion();
   if (reduce) return <div className={className}>{children}</div>;
-  const small = typeof window !== 'undefined' && window.innerWidth < 768;
-  return <motion.div className={className} initial={{ opacity: 0, y: small ? 24 : 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: small ? '-40px' : '-80px' }} transition={{ duration: small ? 0.7 : 0.9, delay: small ? Math.min(delay, 0.15) : delay, ease }}>{children}</motion.div>;
+  return <motion.div className={className} initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.9, delay, ease }}>{children}</motion.div>;
 }
 
 /* ---------- Números que contam ao aparecer ---------- */
@@ -83,7 +55,7 @@ function formatStat(p: ParsedStat, n: number) {
 
 function Counter({ value, label }: { value: string; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-60px' });
+  const inView = useInView(ref, { once: true, margin: '-80px' });
   const reduce = useReducedMotion();
   const parsed = useMemo(() => parseStat(value), [value]);
   const [text, setText] = useState(() => (parsed && !reduce ? formatStat(parsed, 0) : value));
@@ -91,7 +63,7 @@ function Counter({ value, label }: { value: string; label: string }) {
   useEffect(() => {
     if (!parsed || reduce || !inView) return;
     const controls = animate(0, parsed.target, {
-      duration: 1.6,
+      duration: 1.8,
       ease,
       onUpdate: (v) => setText(formatStat(parsed, v)),
       onComplete: () => setText(value),
@@ -138,59 +110,20 @@ function getGymStatus(now = new Date()) {
 function useGymStatus() {
   const [status, setStatus] = useState(() => getGymStatus());
   useEffect(() => {
-    const tick = () => { if (!document.hidden) setStatus(getGymStatus()); };
-    const id = window.setInterval(tick, 30_000);
-    document.addEventListener('visibilitychange', tick);
-    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', tick); };
+    const id = window.setInterval(() => setStatus(getGymStatus()), 30_000);
+    return () => window.clearInterval(id);
   }, []);
   return status;
-}
-
-/* ---------- Modalidades: carrossel com snap no celular ---------- */
-function ModalityCarousel() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(0);
-
-  const onScroll = () => {
-    const el = ref.current;
-    if (!el || el.children.length < 2) return;
-    const step = (el.children[1] as HTMLElement).offsetLeft - (el.children[0] as HTMLElement).offsetLeft;
-    setIndex(Math.min(gym.modalities.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
-  };
-
-  const goTo = (i: number) => {
-    const el = ref.current;
-    const card = el?.children[i] as HTMLElement | undefined;
-    if (!el || !card) return;
-    el.scrollTo({ left: card.offsetLeft - parseFloat(getComputedStyle(el).paddingLeft), behavior: 'smooth' });
-  };
-
-  return (
-    <>
-      <div className="modality-carousel" ref={ref} onScroll={onScroll} data-lenis-prevent-touch>
-        {gym.modalities.map((m) => (
-          <article className="modality-card" key={m.name}>
-            <img src={sized(m.image, 800)} srcSet={srcSetOf(m.image, [480, 800])} sizes="80vw" alt={m.name} loading="lazy" decoding="async" />
-            <div className="modality-card-body"><span>{m.number}</span><h3>{m.name}</h3><p>{m.description}</p></div>
-          </article>
-        ))}
-      </div>
-      <div className="carousel-dots" role="tablist" aria-label="Modalidades">
-        {gym.modalities.map((m, i) => <button key={m.name} onClick={() => goTo(i)} aria-label={`Ver ${m.name}`} aria-current={index === i} />)}
-      </div>
-    </>
-  );
 }
 
 /* ---------- Agendamento (formulário → WhatsApp) ---------- */
 const periods = { Manhã: 'no período da manhã', Tarde: 'no período da tarde', Noite: 'no período da noite' } as const;
 const goals = ['Emagrecer', 'Ganhar massa', 'Saúde e bem-estar', 'Condicionamento'];
 
-function BookingModal({ onClose, isMobile }: { onClose: () => void; isMobile: boolean }) {
+function BookingModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [period, setPeriod] = useState<keyof typeof periods | null>(null);
   const [goal, setGoal] = useState<string | null>(null);
-  const dragControls = useDragControls();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -215,32 +148,15 @@ function BookingModal({ onClose, isMobile }: { onClose: () => void; isMobile: bo
 
   return (
     <motion.div className="booking-backdrop" data-lenis-prevent initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-      <motion.div
-        className="booking-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="booking-title"
-        initial={isMobile ? { y: '100%' } : { y: 40, opacity: 0, scale: 0.98 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={isMobile ? { y: '100%' } : { y: 30, opacity: 0 }}
-        transition={{ duration: 0.5, ease }}
-        drag={isMobile ? 'y' : false}
-        dragControls={dragControls}
-        dragListener={false}
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.5 }}
-        onDragEnd={(_, info) => { if (info.offset.y > 110 || info.velocity.y > 600) onClose(); }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="sheet-grip" onPointerDown={(event) => dragControls.start(event)} aria-hidden="true"><span /></div>
-        <button className="modal-close" onClick={onClose} aria-label="Fechar"><span><X size={18} /></span></button>
+      <motion.div className="booking-modal" role="dialog" aria-modal="true" aria-labelledby="booking-title" initial={{ y: 40, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 30, opacity: 0 }} transition={{ duration: 0.5, ease }} onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Fechar"><X size={18} /></button>
         <p className="eyebrow">Seu primeiro passo</p>
         <h2 id="booking-title">Vamos encontrar <span>seu horário.</span></h2>
         <p>Conte um pouco sobre você e a gente continua a conversa pelo WhatsApp.</p>
         <form onSubmit={submit}>
           <div className="field">
             <label className="field-label" htmlFor="booking-name">Seu nome</label>
-            <input id="booking-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Como podemos te chamar?" required autoComplete="given-name" enterKeyHint="done" autoFocus={!isMobile} />
+            <input id="booking-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Como podemos te chamar?" required autoComplete="given-name" autoFocus />
           </div>
           <fieldset className="field">
             <legend className="field-label">Melhor período</legend>
@@ -273,74 +189,43 @@ function App() {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [showBooking, setShowBooking] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [pastHero, setPastHero] = useState(false);
   const closeBooking = useCallback(() => setShowBooking(false), []);
-  const isMobile = useMediaQuery('(max-width: 767px)');
 
   const anim = useHeroAnimation();
   const status = useGymStatus();
-  const total = gym.testimonials.length;
   const testimonial = gym.testimonials[activeTestimonial];
-  const nextTestimonial = () => setActiveTestimonial((i) => (i + 1) % total);
-  const prevTestimonial = () => setActiveTestimonial((i) => (i + total - 1) % total);
 
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 40);
-      setPastHero(window.scrollY > window.innerHeight * 0.7);
-    };
+    const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* Menu do celular: trava a rolagem do fundo e fecha com Esc */
-  useEffect(() => {
-    if (!menuOpen) return;
-    const previous = document.body.style.overflow;
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
-
-  useEffect(() => { if (!isMobile) setMenuOpen(false); }, [isMobile]);
-
-  const showBar = isMobile && pastHero && !showBooking && !menuOpen;
-
   return (
     <div className="site-shell">
       <header className={`site-header ${scrolled ? 'scrolled' : ''} ${menuOpen ? 'menu-open' : ''}`}>
-        <a className="wordmark" href="#top" aria-label="Áurea início" onClick={() => setMenuOpen(false)}><span className="mark">A</span><span>Áurea</span></a>
+        <a className="wordmark" href="#top" aria-label="Áurea início"><span className="mark">A</span><span>Áurea</span></a>
         <nav className="desktop-nav" aria-label="Navegação principal">
           {navLinks.map(([label, href]) => <a key={href} href={href}>{label}</a>)}
         </nav>
         <div className="header-actions">
-          <button className="menu-toggle" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen} aria-controls="mobile-menu">{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
+          <button className="menu-toggle" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menuOpen}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
           <WhatsAppButton label="Começar" />
         </div>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div className="mobile-nav" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.4, ease }}>
+              {navLinks.map(([label, href]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
-
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div id="mobile-menu" className="mobile-nav" data-lenis-prevent initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-            <nav aria-label="Menu">
-              {navLinks.map(([label, href], i) => (
-                <motion.a key={href} href={href} onClick={() => setMenuOpen(false)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 + i * 0.06, duration: 0.5, ease }}>{label}</motion.a>
-              ))}
-            </nav>
-            <WhatsAppButton label="Agendar aula experimental" />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <main id="top">
         <section className="hero" ref={anim.heroRef as React.RefObject<HTMLElement>}>
           <div className="hero-photo-wrap" ref={anim.photoWrapRef as React.RefObject<HTMLDivElement>}>
-            <img ref={anim.photoRef as React.RefObject<HTMLImageElement>} src={sized(gym.images.hero, 1600)} srcSet={srcSetOf(gym.images.hero, [640, 1000, 1600, 2000])} sizes="100vw" alt="Pessoa correndo com sensação de movimento" className="hero-photo" decoding="async" {...({ fetchpriority: 'high' } as Record<string, string>)} />
+            <img ref={anim.photoRef as React.RefObject<HTMLImageElement>} src={gym.images.hero} alt="Pessoa correndo com sensação de movimento" className="hero-photo" />
           </div>
           <div className="hero-overlay" ref={anim.overlayRef as React.RefObject<HTMLDivElement>} />
           <div className="hero-topline" ref={anim.toplineRef as React.RefObject<HTMLDivElement>}>
@@ -391,11 +276,11 @@ function App() {
             <p className="body-copy">Luz natural, equipamentos de alta performance e uma equipe que conhece seu nome. Tudo para você treinar com foco — e sair se sentindo mais presente do que entrou.</p>
             <a className="round-link" href="#estrutura" aria-label="Ver estrutura"><ChevronDown size={22} /></a>
           </Reveal>
-          <Reveal delay={0.15} className="intro-image image-frame"><img src={sized(gym.images.interior, 1200)} srcSet={srcSetOf(gym.images.interior, [640, 1000, 1400])} sizes="(max-width: 1180px) 100vw, 1180px" alt="Interior amplo da academia Áurea" loading="lazy" decoding="async" /><span className="image-caption">Área de treino, Pinheiros</span></Reveal>
+          <Reveal delay={0.15} className="intro-image image-frame"><img src={gym.images.interior} alt="Interior amplo da academia Áurea" loading="lazy" /><span className="image-caption">Área de treino, Pinheiros</span></Reveal>
         </section>
 
         <section className="beginner section-pad" id="estrutura">
-          <Reveal className="beginner-image image-frame"><img src={sized(gym.images.training, 800)} srcSet={srcSetOf(gym.images.training, [480, 800])} sizes={halfWidth} alt="Mulher treinando com halteres" loading="lazy" decoding="async" /><span className="image-caption">Acompanhamento desde o primeiro dia</span></Reveal>
+          <Reveal className="beginner-image image-frame"><img src={gym.images.training} alt="Mulher treinando com halteres" loading="lazy" /><span className="image-caption">Acompanhamento desde o primeiro dia</span></Reveal>
           <Reveal delay={0.12} className="beginner-copy">
             <p className="eyebrow">Sem pressão</p>
             <h2>Você não precisa saber treinar para <span>começar.</span></h2>
@@ -406,23 +291,19 @@ function App() {
         </section>
 
         <section className="modalities section-pad" id="modalidades">
-          <Reveal className="section-heading"><div><p className="eyebrow">Práticas</p><h2>Escolha seu<br /><span>ritmo.</span></h2></div><p className="heading-note">{isMobile ? <>Deslize para o lado<br />e escolha o seu.</> : <>Deslize, escolha<br />e comece a mover.</>}</p></Reveal>
-          {isMobile ? (
-            <ModalityCarousel />
-          ) : (
-            <div className="modality-stage">
-              <div className="modality-visual image-frame">
-                <AnimatePresence mode="wait"><motion.img key={activeModality.name} src={sized(activeModality.image, 800)} srcSet={srcSetOf(activeModality.image, [480, 800])} sizes={halfWidth} alt={activeModality.name} initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.55, ease }} /></AnimatePresence>
-                <span className="image-caption">Áurea · {activeModality.name}</span>
-              </div>
-              <div className="modality-list">
-                {gym.modalities.map((modality) => (
-                  <button key={modality.name} className={`modality-item ${activeModality.name === modality.name ? 'active' : ''}`} onMouseEnter={() => setActiveModality(modality)} onFocus={() => setActiveModality(modality)} onClick={() => setActiveModality(modality)}><span>{modality.number}</span><strong>{modality.name}</strong><ChevronRight size={24} /></button>
-                ))}
-                <AnimatePresence mode="wait"><motion.p key={activeModality.name} className="modality-description" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>{activeModality.description}</motion.p></AnimatePresence>
-              </div>
+          <Reveal className="section-heading"><div><p className="eyebrow">Práticas</p><h2>Escolha seu<br /><span>ritmo.</span></h2></div><p className="heading-note">Deslize, escolha<br />e comece a mover.</p></Reveal>
+          <div className="modality-stage">
+            <div className="modality-visual image-frame">
+              <AnimatePresence mode="wait"><motion.img key={activeModality.name} src={activeModality.image} alt={activeModality.name} initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.55, ease }} /></AnimatePresence>
+              <span className="image-caption">Áurea · {activeModality.name}</span>
             </div>
-          )}
+            <div className="modality-list">
+              {gym.modalities.map((modality) => (
+                <button key={modality.name} className={`modality-item ${activeModality.name === modality.name ? 'active' : ''}`} onMouseEnter={() => setActiveModality(modality)} onFocus={() => setActiveModality(modality)} onClick={() => setActiveModality(modality)}><span>{modality.number}</span><strong>{modality.name}</strong><ChevronRight size={24} /></button>
+              ))}
+              <AnimatePresence mode="wait"><motion.p key={activeModality.name} className="modality-description" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>{activeModality.description}</motion.p></AnimatePresence>
+            </div>
+          </div>
         </section>
 
         <section className="quote-break">
@@ -456,32 +337,18 @@ function App() {
             <Reveal className="testimonial-feature">
               <div className="quote-mark small">“</div>
               <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTestimonial}
-                  className="testimonial-swipe"
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -14 }}
-                  transition={{ duration: 0.4, ease }}
-                  drag={isMobile ? 'x' : false}
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.3}
-                  onDragEnd={(_, info) => {
-                    if (info.offset.x < -50 || info.velocity.x < -400) nextTestimonial();
-                    else if (info.offset.x > 50 || info.velocity.x > 400) prevTestimonial();
-                  }}
-                >
+                <motion.div key={activeTestimonial} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -14 }} transition={{ duration: 0.4, ease }}>
                   <blockquote>{testimonial.quote}</blockquote>
                   <div className="testimonial-author"><strong>{testimonial.name}</strong><span>{testimonial.detail}</span></div>
                 </motion.div>
               </AnimatePresence>
               <div className="testimonial-controls">
-                <button onClick={prevTestimonial} aria-label="Depoimento anterior"><ChevronLeft size={20} /></button>
-                <span>0{activeTestimonial + 1} / 0{total}</span>
-                <button onClick={nextTestimonial} aria-label="Próximo depoimento"><ChevronRight size={20} /></button>
+                <button onClick={() => setActiveTestimonial((activeTestimonial + gym.testimonials.length - 1) % gym.testimonials.length)} aria-label="Depoimento anterior"><ChevronLeft size={20} /></button>
+                <span>0{activeTestimonial + 1} / 0{gym.testimonials.length}</span>
+                <button onClick={() => setActiveTestimonial((activeTestimonial + 1) % gym.testimonials.length)} aria-label="Próximo depoimento"><ChevronRight size={20} /></button>
               </div>
             </Reveal>
-            <Reveal delay={0.14} className="coach-image image-frame"><img src={sized(gym.images.coach, 800)} srcSet={srcSetOf(gym.images.coach, [480, 700])} sizes={halfWidth} alt="Atleta treinando com cordas" loading="lazy" decoding="async" /><span className="image-caption">Cada corpo tem uma história</span></Reveal>
+            <Reveal delay={0.14} className="coach-image image-frame"><img src={gym.images.coach} alt="Atleta treinando com cordas" loading="lazy" /><span className="image-caption">Cada corpo tem uma história</span></Reveal>
           </div>
         </section>
 
@@ -493,7 +360,7 @@ function App() {
             <p>Venha sentir o espaço, conversar com um professor e fazer uma aula que respeita o seu momento.</p>
             <WhatsAppButton label="Agendar aula experimental" />
           </Reveal>
-          <div className="trial-image"><img src={sized(gym.images.boxing, 700)} srcSet={srcSetOf(gym.images.boxing, [480, 700])} sizes={halfWidth} alt="Treino de boxe com movimento" loading="lazy" decoding="async" /><span>Comece<br />aqui.</span></div>
+          <div className="trial-image"><img src={gym.images.boxing} alt="Treino de boxe com movimento" loading="lazy" /><span>Comece<br />aqui.</span></div>
           <div className="steps"><div><b>01</b><span>Escolha seu horário</span></div><div><b>02</b><span>Conheça a academia</span></div><div><b>03</b><span>Faça sua aula</span></div><div><b>04</b><span>Comece sua jornada</span></div></div>
         </section>
 
@@ -530,20 +397,9 @@ function App() {
         <div className="footer-top"><a className="wordmark" href="#top"><span className="mark">A</span><span>Áurea</span></a><p>Treine com intenção.<br />Viva com presença.</p><WhatsAppButton label="Falar com a gente" /></div>
         <div className="footer-bottom"><span>© {new Date().getFullYear()} Áurea. Todos os movimentos reservados.</span><a href="#top">Voltar ao topo ↑</a><a href="https://instagram.com" target="_blank" rel="noreferrer"><Instagram size={16} /> Instagram</a></div>
       </footer>
-
       <a className="whatsapp-float" href={whatsappUrl('Olá! Vim pelo site e gostaria de agendar uma aula experimental.')} target="_blank" rel="noreferrer" aria-label="Falar no WhatsApp"><MessageCircle size={24} /></a>
 
-      {/* Barra fixa na zona do polegar (só celular) */}
-      <AnimatePresence>
-        {showBar && (
-          <motion.div className="mobile-cta" initial={{ y: '160%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '160%', opacity: 0 }} transition={{ duration: 0.5, ease }}>
-            <button className="button" onClick={() => setShowBooking(true)}>Agendar aula experimental</button>
-            <a className="mobile-cta-wa" href={whatsappUrl('Olá! Vim pelo site e gostaria de agendar uma aula experimental.')} target="_blank" rel="noreferrer" aria-label="Falar no WhatsApp"><MessageCircle size={24} /></a>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>{showBooking && <BookingModal onClose={closeBooking} isMobile={isMobile} />}</AnimatePresence>
+      <AnimatePresence>{showBooking && <BookingModal onClose={closeBooking} />}</AnimatePresence>
     </div>
   );
 }
