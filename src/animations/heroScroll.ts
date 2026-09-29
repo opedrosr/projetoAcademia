@@ -3,6 +3,9 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/* Evita "pulos" no celular quando a barra do navegador esconde/mostra */
+ScrollTrigger.config({ ignoreMobileResize: true });
+
 export interface HeroScrollRefs {
   hero: HTMLElement;
   photoWrap: HTMLElement;
@@ -36,10 +39,57 @@ export function initHeroScroll(
     return () => {};
   }
 
+  const lite = window.matchMedia(
+    '(max-width: 767px), (pointer: coarse)',
+  ).matches;
+
   const triggers: ScrollTrigger[] = [];
 
   /*
-   * HERO → PRÓXIMA SEÇÃO
+   * CELULAR / TOQUE
+   * Só transform + opacity (baratos). Sem escala do hero, sem blur/saturate
+   * na foto inteira e sem fade da próxima seção.
+   */
+  if (lite) {
+    const setPhotoY = gsap.quickSetter(photoWrap, 'y', 'px');
+
+    const stLite = ScrollTrigger.create({
+      trigger: hero,
+      start: 'top top',
+      end: 'bottom top',
+      scrub: true,
+
+      onUpdate: (self) => {
+        const p = self.progress;
+
+        setPhotoY(p * 60);
+
+        gsap.set(titleLines, {
+          yPercent: -p * 18,
+          opacity: 1 - p * 0.95,
+        });
+
+        gsap.set(heroBottom, {
+          y: -p * 30,
+          opacity: 1 - p * 1.4,
+        });
+
+        gsap.set(floatingCard, { opacity: 1 - p * 2 });
+        gsap.set(scroll, { opacity: 1 - p * 2 });
+      },
+    });
+
+    triggers.push(stLite);
+
+    return () => {
+      triggers.forEach((trigger) => {
+        trigger.kill();
+      });
+    };
+  }
+
+  /*
+   * HERO → PRÓXIMA SEÇÃO (desktop)
    */
 
   const st1 = ScrollTrigger.create({

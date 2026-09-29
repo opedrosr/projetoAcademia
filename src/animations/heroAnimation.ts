@@ -19,6 +19,10 @@ export interface HeroAnimationRefs {
 const PREMIUM_EASE = 'power3.out';
 const SOFT_EASE = 'power2.out';
 
+/* Celular / toque: sem blur em imagem inteira (pesado na GPU), animação mais curta. */
+const isLite = () =>
+  window.matchMedia('(max-width: 767px), (pointer: coarse)').matches;
+
 export function playHeroEntry(
   refs: HeroAnimationRefs,
 ): gsap.core.Timeline {
@@ -65,37 +69,44 @@ export function playHeroEntry(
     return gsap.timeline();
   }
 
+  const lite = isLite();
+
+  /* Em celular a linha do tempo é ~25% mais rápida */
+  const t = (n: number) => (lite ? n * 0.75 : n);
+
   /*
    * ESTADO INICIAL
    */
 
-  gsap.set(photoWrap, {
-    scale: 1.1,
-    opacity: 0,
-    filter: 'blur(14px)',
-    transformOrigin: 'center center',
-  });
+  gsap.set(
+    photoWrap,
+    lite
+      ? { scale: 1.06, opacity: 0, transformOrigin: 'center center' }
+      : {
+          scale: 1.1,
+          opacity: 0,
+          filter: 'blur(14px)',
+          transformOrigin: 'center center',
+        },
+  );
 
-  gsap.set(photo, {
-    xPercent: -3,
-    scale: 1.055,
-    filter: 'blur(3px) saturate(.82)',
-    transformOrigin: 'center center',
-  });
+  gsap.set(
+    photo,
+    lite
+      ? { scale: 1.03, transformOrigin: 'center center' }
+      : {
+          xPercent: -3,
+          scale: 1.055,
+          filter: 'blur(3px) saturate(.82)',
+          transformOrigin: 'center center',
+        },
+  );
 
-  gsap.set(overlay, {
-    opacity: 0,
-  });
+  gsap.set(overlay, { opacity: 0 });
 
-  gsap.set(topline, {
-    opacity: 0,
-    y: -10,
-  });
+  gsap.set(topline, { opacity: 0, y: -10 });
 
-  gsap.set(eyebrow, {
-    opacity: 0,
-    x: -18,
-  });
+  gsap.set(eyebrow, { opacity: 0, y: 12 });
 
   gsap.set(titleLines, {
     opacity: 0,
@@ -103,38 +114,22 @@ export function playHeroEntry(
     clipPath: 'inset(0 0 100% 0)',
   });
 
-  gsap.set(heroBottom, {
-    opacity: 0,
-    y: 20,
-  });
+  gsap.set(heroBottom, { opacity: 0, y: 20 });
 
-  gsap.set(heroBottomP, {
-    opacity: 0,
-    y: 12,
-  });
+  gsap.set(heroBottomP, { opacity: 0, y: 12 });
 
-  gsap.set(heroButton, {
-    opacity: 0,
-    y: 16,
-    scale: 0.96,
-  });
+  gsap.set(heroButton, { opacity: 0, y: 16, scale: 0.96 });
 
-  gsap.set(sideNote, {
-    opacity: 0,
-    x: -12,
-  });
+  gsap.set(sideNote, { opacity: 0, x: -12 });
 
-  gsap.set(floatingCard, {
-    opacity: 0,
-    x: 34,
-    y: -10,
-    scale: 0.97,
-  });
+  gsap.set(
+    floatingCard,
+    lite
+      ? { opacity: 0, y: 14 }
+      : { opacity: 0, x: 34, y: -10, scale: 0.97 },
+  );
 
-  gsap.set(scroll, {
-    opacity: 0,
-    y: 10,
-  });
+  gsap.set(scroll, { opacity: 0, y: 10 });
 
   /*
    * TIMELINE
@@ -148,12 +143,18 @@ export function playHeroEntry(
 
   tl.to(
     photoWrap,
-    {
-      scale: 1,
-      opacity: 1,
-      filter: 'blur(0px)',
-      duration: 1.15,
-    },
+    lite
+      ? { scale: 1, opacity: 1, duration: 0.9 }
+      : {
+          scale: 1,
+          opacity: 1,
+          filter: 'blur(0px)',
+          duration: 1.15,
+          /* libera a camada de filtro da GPU depois da entrada */
+          onComplete: () => {
+            gsap.set(photoWrap, { clearProps: 'filter' });
+          },
+        },
     0.05,
   )
 
@@ -162,56 +163,38 @@ export function playHeroEntry(
      */
     .to(
       photo,
-      {
-        xPercent: 0,
-        scale: 1,
-        filter: 'blur(0px) saturate(1)',
-        duration: 1.35,
-        ease: SOFT_EASE,
-      },
+      lite
+        ? { scale: 1, duration: 1.1, ease: SOFT_EASE }
+        : {
+            xPercent: 0,
+            scale: 1,
+            filter: 'blur(0px) saturate(1)',
+            duration: 1.35,
+            ease: SOFT_EASE,
+            onComplete: () => {
+              gsap.set(photo, { clearProps: 'filter' });
+            },
+          },
       0.05,
     )
 
     /*
      * OVERLAY
      */
-    .to(
-      overlay,
-      {
-        opacity: 1,
-        duration: 0.95,
-      },
-      0.25,
-    )
+    .to(overlay, { opacity: 1, duration: t(0.95) }, 0.25)
 
     /*
      * LINHA SUPERIOR
      */
-    .to(
-      topline,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.7,
-      },
-      0.48,
-    )
+    .to(topline, { opacity: 1, y: 0, duration: t(0.7) }, t(0.48))
 
     /*
      * EYEBROW
      */
-    .to(
-      eyebrow,
-      {
-        opacity: 1,
-        x: 0,
-        duration: 0.65,
-      },
-      0.58,
-    )
+    .to(eyebrow, { opacity: 1, y: 0, duration: t(0.65) }, t(0.58))
 
     /*
-     * TÍTULO CINEMATOGRÁFICO
+     * TÍTULO
      */
     .to(
       titleLines,
@@ -219,35 +202,19 @@ export function playHeroEntry(
         opacity: 1,
         yPercent: 0,
         clipPath: 'inset(0 0 0% 0)',
-        duration: 0.9,
-        stagger: 0.105,
+        duration: t(0.9),
+        stagger: lite ? 0.08 : 0.105,
         ease: PREMIUM_EASE,
       },
-      0.64,
+      t(0.64),
     )
 
     /*
      * PARTE INFERIOR
      */
-    .to(
-      heroBottom,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.62,
-      },
-      1.08,
-    )
+    .to(heroBottom, { opacity: 1, y: 0, duration: t(0.62) }, t(1.08))
 
-    .to(
-      heroBottomP,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.52,
-      },
-      1.15,
-    )
+    .to(heroBottomP, { opacity: 1, y: 0, duration: t(0.52) }, t(1.15))
 
     /*
      * CTA
@@ -258,27 +225,19 @@ export function playHeroEntry(
         opacity: 1,
         y: 0,
         scale: 1,
-        duration: 0.58,
+        duration: t(0.58),
         ease: 'power3.out',
       },
-      1.22,
+      t(1.22),
     )
 
     /*
      * NOTA LATERAL
      */
-    .to(
-      sideNote,
-      {
-        opacity: 1,
-        x: 0,
-        duration: 0.62,
-      },
-      1.3,
-    )
+    .to(sideNote, { opacity: 1, x: 0, duration: t(0.62) }, t(1.3))
 
     /*
-     * CARD FLUTUANTE
+     * CARD / STATUS
      */
     .to(
       floatingCard,
@@ -287,30 +246,22 @@ export function playHeroEntry(
         x: 0,
         y: 0,
         scale: 1,
-        duration: 0.72,
+        duration: t(0.72),
         ease: 'power3.out',
       },
-      1.34,
+      t(1.34),
     )
 
     /*
      * SCROLL INDICATOR
      */
-    .to(
-      scroll,
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.5,
-      },
-      1.48,
-    );
+    .to(scroll, { opacity: 1, y: 0, duration: t(0.5) }, t(1.48));
 
   return tl;
 }
 
 /*
- * INTERAÇÃO COM O MOUSE
+ * INTERAÇÃO COM O MOUSE (só faz efeito em desktop)
  */
 
 export function createMouseInteraction(
@@ -358,11 +309,8 @@ export function createMouseInteraction(
   });
 
   const onMove = (e: MouseEvent) => {
-    const nx =
-      (e.clientX / window.innerWidth - 0.5) * 2;
-
-    const ny =
-      (e.clientY / window.innerHeight - 0.5) * 2;
+    const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+    const ny = (e.clientY / window.innerHeight - 0.5) * 2;
 
     photoX(nx * 10);
     photoY(ny * 7);
@@ -388,11 +336,7 @@ export function createMouseInteraction(
   };
 
   const cleanup = () => {
-    gsap.killTweensOf([
-      photo,
-      ...textEls,
-      ...smallEls,
-    ]);
+    gsap.killTweensOf([photo, ...textEls, ...smallEls]);
   };
 
   return {
