@@ -35,12 +35,33 @@ import {
   type ReactNode,
   type Ref,
   type FormEvent,
+  type TouchEvent,
 } from 'react';
 
 import { gym, type Modality } from '@/data/gym';
 import { useHeroAnimation } from '@/hooks/useHeroAnimation';
 
 const ease = [0.22, 1, 0.36, 1] as const;
+
+/* =========================================================
+   DEMO / PLACEHOLDERS
+   ---------------------------------------------------------
+   Troque estes valores quando apresentar o projeto para
+   uma academia real.
+
+   A ideia é que o dono veja a estrutura como algo criado
+   para ele, e não como um site de outra academia.
+========================================================= */
+
+const DEMO = {
+  brand: 'NOME DA ACADEMIA',
+  shortBrand: 'ACADEMIA',
+  city: 'CIDADE · UF',
+  neighborhood: 'BAIRRO · CIDADE',
+  instagram: '@INSTAGRAM_DA_ACADEMIA',
+  address: 'ENDEREÇO DA ACADEMIA',
+  hours: 'Seg–Sáb · 06h–22h',
+};
 
 const navLinks = [
   ['Experiência', '#experiencia'],
@@ -54,7 +75,7 @@ const navLinks = [
 ========================================================= */
 
 function whatsappUrl(
-  message = 'Olá! Quero conhecer a Áurea e agendar uma aula.',
+  message = `Olá! Quero conhecer a ${DEMO.brand} e agendar uma aula.`,
 ) {
   return `https://wa.me/${gym.whatsapp}?text=${encodeURIComponent(message)}`;
 }
@@ -529,7 +550,7 @@ function BookingModal({
     event.preventDefault();
 
     const message = [
-      'Olá! Quero agendar uma aula na Áurea.',
+      `Olá! Quero agendar uma aula na ${DEMO.brand}.`,
       name
         ? `Meu nome é ${name}.`
         : '',
@@ -633,7 +654,7 @@ function BookingModal({
         </span>
 
         <h2>
-          Conheça a <em>Áurea.</em>
+          Conheça a <em>{DEMO.brand}.</em>
         </h2>
 
         <p>
@@ -731,6 +752,13 @@ export default function App() {
     activeTestimonial,
     setActiveTestimonial,
   ] = useState(0);
+
+  /* =======================================================
+     CARROSSEL MOBILE DE PLANOS
+  ======================================================= */
+
+  const [activePlan, setActivePlan] =
+    useState(0);
 
   const [showBooking, setShowBooking] =
     useState(false);
@@ -1020,7 +1048,7 @@ export default function App() {
   const fallbackPlans = [
     {
       name: 'Essencial',
-      price: 'R$ 149',
+      price: 'R$ 000',
       period: '/mês',
       description:
         'Para começar a criar consistência.',
@@ -1032,7 +1060,7 @@ export default function App() {
     },
     {
       name: 'Performance',
-      price: 'R$ 199',
+      price: 'R$ 000',
       period: '/mês',
       description:
         'Para quem quer evoluir com mais estrutura.',
@@ -1045,7 +1073,7 @@ export default function App() {
     },
     {
       name: 'Premium',
-      price: 'R$ 269',
+      price: 'R$ 000',
       period: '/mês',
       description:
         'Uma experiência completa de treinamento.',
@@ -1062,21 +1090,39 @@ export default function App() {
       ? plans
       : fallbackPlans;
 
+  /* -------------------------------------------------------
+     GARANTE QUE ACTIVE PLAN NUNCA FIQUE INVÁLIDO
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    if (
+      activePlan >= visiblePlans.length &&
+      visiblePlans.length > 0
+    ) {
+      setActivePlan(
+        visiblePlans.length - 1,
+      );
+    }
+  }, [
+    activePlan,
+    visiblePlans.length,
+  ]);
+
   const fallbackTestimonials = [
     {
-      name: 'Marina',
+      name: 'NOME DA ALUNA',
       role: 'Aluna',
       text:
         'Um espaço em que treinar realmente virou parte da minha rotina.',
     },
     {
-      name: 'Lucas',
+      name: 'NOME DO ALUNO',
       role: 'Aluno',
       text:
         'A estrutura e o ambiente fizeram muita diferença para eu voltar a treinar.',
     },
     {
-      name: 'Ana',
+      name: 'NOME DA ALUNA',
       role: 'Aluna',
       text:
         'O atendimento é próximo e a experiência é muito diferente de uma academia comum.',
@@ -1091,7 +1137,7 @@ export default function App() {
   const faqs = [
     [
       'Preciso já saber treinar?',
-      'Não. A Áurea foi pensada também para quem está começando ou voltando depois de um período parado.',
+      'Não. A academia foi pensada também para quem está começando ou voltando depois de um período parado.',
     ],
     [
       'Posso fazer uma aula antes de contratar?',
@@ -1141,6 +1187,107 @@ export default function App() {
   };
 
   /* -------------------------------------------------------
+     PLAN SWIPE — MOBILE
+  ------------------------------------------------------- */
+
+  const planTouchStartX =
+    useRef<number | null>(null);
+
+  const planTouchStartY =
+    useRef<number | null>(null);
+
+  const changePlan = (
+    direction: number,
+  ) => {
+    if (!visiblePlans.length) {
+      return;
+    }
+
+    setActivePlan(
+      (current) => {
+        const next =
+          current + direction;
+
+        if (next < 0) {
+          return (
+            visiblePlans.length - 1
+          );
+        }
+
+        if (
+          next >=
+          visiblePlans.length
+        ) {
+          return 0;
+        }
+
+        return next;
+      },
+    );
+  };
+
+  const handlePlanTouchStart = (
+    event: TouchEvent<HTMLDivElement>,
+  ) => {
+    planTouchStartX.current =
+      event.touches[0]?.clientX ?? null;
+
+    planTouchStartY.current =
+      event.touches[0]?.clientY ?? null;
+  };
+
+  const handlePlanTouchEnd = (
+    event: TouchEvent<HTMLDivElement>,
+  ) => {
+    if (
+      planTouchStartX.current === null ||
+      planTouchStartY.current === null
+    ) {
+      return;
+    }
+
+    const endX =
+      event.changedTouches[0]?.clientX ??
+      planTouchStartX.current;
+
+    const endY =
+      event.changedTouches[0]?.clientY ??
+      planTouchStartY.current;
+
+    const deltaX =
+      endX - planTouchStartX.current;
+
+    const deltaY =
+      endY - planTouchStartY.current;
+
+    planTouchStartX.current = null;
+    planTouchStartY.current = null;
+
+    /*
+      Movimento predominantemente vertical:
+      deixa o scroll da página funcionar normalmente.
+    */
+    if (
+      Math.abs(deltaX) <
+      Math.abs(deltaY)
+    ) {
+      return;
+    }
+
+    /*
+      Distância mínima para evitar troca acidental
+      durante um simples toque.
+    */
+    if (Math.abs(deltaX) < 45) {
+      return;
+    }
+
+    changePlan(
+      deltaX < 0 ? 1 : -1,
+    );
+  };
+
+  /* -------------------------------------------------------
      TESTIMONIAL
   ------------------------------------------------------- */
 
@@ -1175,8 +1322,11 @@ export default function App() {
 
   const mapsUrl =
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      `${gym.city}, Pinheiros, São Paulo - SP`,
+      `${DEMO.neighborhood}, ${DEMO.city}`,
     )}`;
+
+  const currentPlan =
+    visiblePlans[activePlan];
 
   return (
     <div className="site-shell">
@@ -1211,7 +1361,9 @@ export default function App() {
             A
           </span>
 
-          <span>Áurea</span>
+          <span>
+            {DEMO.shortBrand}
+          </span>
         </a>
 
         <nav className="desktop-nav">
@@ -1235,11 +1387,11 @@ export default function App() {
 
         <div className="header-actions">
           <span className="header-city">
-            SP / PINHEIROS
+            {DEMO.city}
           </span>
 
           <WhatsAppButton
-            message="Olá! Quero conhecer a Áurea e agendar uma aula."
+            message={`Olá! Quero conhecer a ${DEMO.brand} e agendar uma aula.`}
           >
             Começar
           </WhatsAppButton>
@@ -1388,7 +1540,7 @@ export default function App() {
             }
             className="hero-photo"
             src={gym.images.hero}
-            alt="Interior da Áurea"
+            alt={`Interior da ${DEMO.brand}`}
             fetchPriority="high"
           />
         </motion.div>
@@ -1407,13 +1559,13 @@ export default function App() {
           className="hero-topline"
         >
           <span>
-            ÁUREA TRAINING CLUB
+            {DEMO.brand}
           </span>
 
           <span className="hero-line" />
 
           <span>
-            PINHEIROS · SP
+            {DEMO.city}
           </span>
         </div>
 
@@ -1455,10 +1607,6 @@ export default function App() {
           </motion.span>
 
           <h1>
-            {/* CORREÇÃO:
-                Removidos titleLineOneRef e titleLineTwoRef.
-                Essas propriedades NÃO existem no hook. */}
-
             <motion.span
               className="title-line"
               initial={{
@@ -1563,7 +1711,7 @@ export default function App() {
             </motion.p>
 
             <WhatsAppButton
-              message="Olá! Quero conhecer a Áurea e agendar uma aula."
+              message={`Olá! Quero conhecer a ${DEMO.brand} e agendar uma aula.`}
             >
               Agendar aula
             </WhatsAppButton>
@@ -1586,7 +1734,7 @@ export default function App() {
           <span className="vertical-line" />
 
           <span>
-            Áurea · 01
+            {DEMO.shortBrand} · 01
           </span>
         </motion.div>
 
@@ -1708,7 +1856,7 @@ export default function App() {
             className="manifesto-aside"
           >
             <p>
-              A Áurea foi criada para tirar o
+              A {DEMO.brand} foi criada para tirar o
               treino do automático. Um espaço em
               que ambiente, método e movimento
               trabalham juntos.
@@ -1795,7 +1943,7 @@ export default function App() {
               href="#agendar"
               className="text-link"
             >
-              Conhecer a Áurea
+              Conhecer a {DEMO.brand}
               <ArrowRight size={15} />
             </a>
           </div>
@@ -1807,8 +1955,8 @@ export default function App() {
             gym.images.interior ??
             gym.images.hero
           }
-          alt="Espaço interno da Áurea"
-          caption="O espaço · Pinheiros"
+          alt={`Espaço interno da ${DEMO.brand}`}
+          caption={`O espaço · ${DEMO.neighborhood}`}
           direction="right"
         />
       </section>
@@ -1828,7 +1976,7 @@ export default function App() {
             gym.images.training ??
             gym.images.hero
           }
-          alt="Pessoa treinando na Áurea"
+          alt={`Pessoa treinando na ${DEMO.brand}`}
           caption="Sem pressão"
           direction="left"
         />
@@ -1890,7 +2038,7 @@ export default function App() {
           </ul>
 
           <WhatsAppButton
-            message="Olá! Estou começando/voltando a treinar e gostaria de conhecer a Áurea."
+            message={`Olá! Estou começando/voltando a treinar e gostaria de conhecer a ${DEMO.brand}.`}
           >
             Quero começar
           </WhatsAppButton>
@@ -2279,6 +2427,10 @@ export default function App() {
             </div>
           </Reveal>
 
+          {/* =================================================
+              DESKTOP
+          ================================================= */}
+
           <div className="plan-list">
             {visiblePlans.map(
               (
@@ -2421,7 +2573,7 @@ export default function App() {
                     )}
                     message={`Olá! Quero conhecer o ${
                       plan.name ??
-                      'plano da Áurea'
+                      'plano da academia'
                     }.`}
                   >
                     Escolher este plano
@@ -2429,6 +2581,254 @@ export default function App() {
                 </motion.article>
               ),
             )}
+          </div>
+
+          {/* =================================================
+              MOBILE — CARROSSEL
+          ================================================= */}
+
+          <div
+            className="plans-mobile-carousel"
+            aria-label="Planos da academia"
+            onTouchStart={
+              handlePlanTouchStart
+            }
+            onTouchEnd={
+              handlePlanTouchEnd
+            }
+          >
+            <div className="plans-mobile-topline">
+              <span>
+                PLANO{' '}
+                {String(
+                  activePlan + 1,
+                ).padStart(2, '0')}
+              </span>
+
+              <span>
+                {String(
+                  visiblePlans.length,
+                ).padStart(2, '0')}
+              </span>
+            </div>
+
+            <div className="plans-mobile-viewport">
+              <AnimatePresence
+                mode="wait"
+                initial={false}
+              >
+                <motion.article
+                  key={planKey(
+                    currentPlan,
+                    activePlan,
+                  )}
+                  className={`plan plan-mobile ${
+                    currentPlan?.featured ||
+                    currentPlan?.highlighted
+                      ? 'featured'
+                      : ''
+                  }`}
+                  initial={{
+                    opacity: 0,
+                    x: reduced
+                      ? 0
+                      : 55,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    x: reduced
+                      ? 0
+                      : -45,
+                  }}
+                  transition={{
+                    duration: reduced
+                      ? 0.01
+                      : 0.5,
+                    ease,
+                  }}
+                >
+                  <div className="plan-top">
+                    <span className="plan-number">
+                      {String(
+                        activePlan + 1,
+                      ).padStart(2, '0')}
+                    </span>
+
+                    {currentPlan?.tag && (
+                      <span className="plan-tag">
+                        {currentPlan.tag}
+                      </span>
+                    )}
+
+                    {!currentPlan?.tag &&
+                      (currentPlan?.featured ||
+                        currentPlan?.highlighted) && (
+                        <span className="plan-tag">
+                          Mais escolhido
+                        </span>
+                      )}
+                  </div>
+
+                  <h3>
+                    {currentPlan?.name ??
+                      currentPlan?.title ??
+                      `Plano ${
+                        activePlan + 1
+                      }`}
+                  </h3>
+
+                  <p className="plan-detail">
+                    {currentPlan?.description ??
+                      currentPlan?.detail ??
+                      'Para manter sua rotina de treino em movimento.'}
+                  </p>
+
+                  <div className="price">
+                    {currentPlan?.price ??
+                      currentPlan?.value ??
+                      'Consulte'}
+
+                    {currentPlan?.period && (
+                      <small>
+                        {currentPlan.period}
+                      </small>
+                    )}
+                  </div>
+
+                  <ul>
+                    {safeArray<string>(
+                      currentPlan?.features ??
+                        currentPlan?.benefits,
+                    ).map(
+                      (feature) => (
+                        <li key={feature}>
+                          <Check size={15} />
+                          {feature}
+                        </li>
+                      ),
+                    )}
+
+                    {!safeArray<string>(
+                      currentPlan?.features ??
+                        currentPlan?.benefits,
+                    ).length && (
+                      <>
+                        <li>
+                          <Check size={15} />
+                          Acesso à estrutura
+                        </li>
+
+                        <li>
+                          <Check size={15} />
+                          Ambiente completo
+                        </li>
+
+                        <li>
+                          <Check size={15} />
+                          Treino com consistência
+                        </li>
+                      </>
+                    )}
+                  </ul>
+
+                  <WhatsAppButton
+                    dark={Boolean(
+                      currentPlan?.featured ||
+                        currentPlan?.highlighted,
+                    )}
+                    message={`Olá! Quero conhecer o ${
+                      currentPlan?.name ??
+                      'plano da academia'
+                    }.`}
+                  >
+                    Escolher este plano
+                  </WhatsAppButton>
+                </motion.article>
+              </AnimatePresence>
+            </div>
+
+            <div
+              className="plans-mobile-controls"
+              aria-label="Navegação entre planos"
+            >
+              <button
+                type="button"
+                className="round-link"
+                onClick={() =>
+                  changePlan(-1)
+                }
+                aria-label="Plano anterior"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <div
+                className="plan-dots"
+                role="tablist"
+                aria-label="Selecionar plano"
+              >
+                {visiblePlans.map(
+                  (
+                    plan: any,
+                    index,
+                  ) => (
+                    <button
+                      key={
+                        plan.id ??
+                        plan.name ??
+                        index
+                      }
+                      type="button"
+                      role="tab"
+                      aria-selected={
+                        activePlan === index
+                      }
+                      aria-label={`Ver plano ${
+                        index + 1
+                      }${
+                        plan.name
+                          ? `: ${plan.name}`
+                          : ''
+                      }`}
+                      className={`plan-dot ${
+                        activePlan ===
+                        index
+                          ? 'active'
+                          : ''
+                      }`}
+                      onClick={() =>
+                        setActivePlan(
+                          index,
+                        )
+                      }
+                    />
+                  ),
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="round-link"
+                onClick={() =>
+                  changePlan(1)
+                }
+                aria-label="Próximo plano"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            <div className="plan-swipe-hint">
+              <span>
+                Deslize para ver os outros planos
+              </span>
+
+              <ArrowRight size={14} />
+            </div>
           </div>
         </div>
       </section>
@@ -2453,7 +2853,7 @@ export default function App() {
                 }}
               >
                 Quem vive a{' '}
-                <em>Áurea.</em>
+                <em>{DEMO.brand}.</em>
               </h2>
             </div>
           </Reveal>
@@ -2544,7 +2944,7 @@ export default function App() {
                       visibleTestimonials[
                         activeTestimonial
                       ]?.name ??
-                      'Aluna Áurea'
+                      'Aluno da academia'
                     }
                   </strong>
 
@@ -2553,7 +2953,7 @@ export default function App() {
                       visibleTestimonials[
                         activeTestimonial
                       ]?.role ??
-                      'Aluna'
+                      'Aluno'
                     }
                   </span>
                 </motion.div>
@@ -2611,7 +3011,7 @@ export default function App() {
               gym.images.coach ??
               gym.images.hero
             }
-            alt="Coach da Áurea"
+            alt={`Coach da ${DEMO.brand}`}
             caption="Treino com presença"
             direction="right"
           />
@@ -2642,12 +3042,12 @@ export default function App() {
             Uma primeira experiência é
             suficiente para entender o espaço,
             sentir o ambiente e descobrir se a
-            Áurea faz sentido para você.
+            {` ${DEMO.brand}`} faz sentido para você.
           </p>
 
           <WhatsAppButton
             dark
-            message="Olá! Quero conhecer a Áurea antes de decidir e gostaria de agendar uma aula."
+            message={`Olá! Quero conhecer a ${DEMO.brand} antes de decidir e gostaria de agendar uma aula.`}
           >
             Agendar uma aula
           </WhatsAppButton>
@@ -2659,7 +3059,7 @@ export default function App() {
             gym.images.boxing ??
             gym.images.hero
           }
-          alt="Pessoa treinando na Áurea"
+          alt={`Pessoa treinando na ${DEMO.brand}`}
           caption="Seu primeiro passo"
           direction="right"
         />
@@ -2855,7 +3255,7 @@ export default function App() {
                 }}
               >
                 Venha para a{' '}
-                <em>Áurea.</em>
+                <em>{DEMO.shortBrand}.</em>
               </h2>
             </div>
           </Reveal>
@@ -2881,7 +3281,7 @@ export default function App() {
               ease,
             }}
           >
-            SP
+            {DEMO.city.split('·')[0].trim()}
           </motion.div>
         </div>
 
@@ -2889,7 +3289,7 @@ export default function App() {
           <Reveal direction="left">
             <div className="location-copy">
               <span className="eyebrow">
-                Pinheiros · São Paulo
+                {DEMO.neighborhood}
               </span>
 
               <h2>
@@ -2903,8 +3303,7 @@ export default function App() {
                   <MapPin size={19} />
 
                   <p>
-                    Pinheiros · São Paulo
-                    · SP
+                    {DEMO.address}
                   </p>
                 </div>
 
@@ -2912,9 +3311,7 @@ export default function App() {
                   <Clock3 size={19} />
 
                   <p>
-                    Seg–Sáb
-                    <br />
-                    06h–22h
+                    {DEMO.hours}
                   </p>
                 </div>
 
@@ -3012,11 +3409,11 @@ export default function App() {
             </motion.div>
 
             <div className="map-label">
-              Pinheiros
+              {DEMO.neighborhood}
               <br />
 
               <small>
-                São Paulo · SP
+                {DEMO.city}
               </small>
             </div>
           </motion.div>
@@ -3041,7 +3438,7 @@ export default function App() {
             </span>
 
             <span>
-              Áurea
+              {DEMO.shortBrand}
             </span>
           </motion.a>
 
@@ -3056,7 +3453,8 @@ export default function App() {
 
         <div className="footer-bottom">
           <span>
-            © {new Date().getFullYear()} Áurea
+            © {new Date().getFullYear()}{' '}
+            {DEMO.brand}
           </span>
 
           <a
@@ -3065,7 +3463,7 @@ export default function App() {
             rel="noreferrer"
           >
             <Instagram size={14} />
-            Instagram
+            {DEMO.instagram}
           </a>
 
           <a href="#inicio">
@@ -3181,5 +3579,20 @@ export default function App() {
         )}
       </nav>
     </div>
+  );
+}
+
+/* =========================================================
+   PLAN KEY
+========================================================= */
+
+function planKey(
+  plan: any,
+  index: number,
+) {
+  return (
+    plan?.id ??
+    plan?.name ??
+    `plan-${index}`
   );
 }

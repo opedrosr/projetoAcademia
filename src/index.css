@@ -713,31 +713,32 @@ h2 span, h1 span { font-weight: 300; }
   line-height: 1;
 }
 
+/* =========================================================
+   PLANOS
+   Desktop: 3 cards lado a lado
+   Mobile: 1 card por vez + carrossel
+========================================================= */
+
 .plans-layout {
   display: grid;
   grid-template-columns: 1fr;
   gap: 3rem;
 }
-.plans-intro p { margin-bottom: 1rem; }
+
+.plans-intro p {
+  margin-bottom: 1rem;
+}
+
+/* ---------------------------------------------------------
+   DESKTOP / BASE
+--------------------------------------------------------- */
+
 .plan-list {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.25rem var(--gutter) 1.5rem;
-  margin-inline: calc(var(--gutter) * -1);
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--gutter);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
 }
-.plan-list::-webkit-scrollbar { display: none; }
-.plan-list > * {
-  flex: 0 0 calc(88vw - 1rem);
-  min-width: 0;
-  scroll-snap-align: start;
-}
+
 .plan {
   padding: 2.25rem 1.75rem;
   background: var(--paper);
@@ -746,26 +747,39 @@ h2 span, h1 span { font-weight: 300; }
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  transition: transform 0.35s var(--ease), border-color 0.35s var(--ease);
+  transition:
+    transform 0.35s var(--ease),
+    border-color 0.35s var(--ease);
 }
-.plan:hover { transform: translateY(-4px); border-color: rgba(12,12,12,0.12); }
+
+.plan:hover {
+  transform: translateY(-4px);
+  border-color: rgba(12,12,12,0.12);
+}
+
 .plan.featured {
   background: var(--ink);
   color: var(--white);
   border-color: var(--ink);
 }
+
 .plan-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .plan-number {
   font-family: var(--font-display);
   font-size: 0.875rem;
   color: var(--gray-mid);
   letter-spacing: 0.05em;
 }
-.plan.featured .plan-number { color: rgba(250,250,247,0.4); }
+
+.plan.featured .plan-number {
+  color: rgba(250,250,247,0.4);
+}
+
 .plan-tag {
   font-size: 0.5625rem;
   text-transform: uppercase;
@@ -776,16 +790,25 @@ h2 span, h1 span { font-weight: 300; }
   padding: 0.375rem 0.75rem;
   border-radius: 999px;
 }
-.plan.featured .plan-tag { background: rgba(200,67,28,0.15); }
+
+.plan.featured .plan-tag {
+  background: rgba(200,67,28,0.15);
+}
+
 .plan h3 {
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 600;
 }
+
 .plan-detail {
   font-size: 0.8125rem;
   color: var(--gray-text);
 }
-.plan.featured .plan-detail { color: rgba(250,250,247,0.5); }
+
+.plan.featured .plan-detail {
+  color: rgba(250,250,247,0.5);
+}
+
 .price {
   font-family: var(--font-display);
   font-size: clamp(2.5rem, 5vw, 3.25rem);
@@ -793,12 +816,17 @@ h2 span, h1 span { font-weight: 300; }
   letter-spacing: -0.02em;
   line-height: 1;
 }
+
 .price small {
   font-size: 0.875rem;
   font-weight: 400;
   color: var(--gray-mid);
 }
-.plan.featured .price small { color: rgba(250,250,247,0.4); }
+
+.plan.featured .price small {
+  color: rgba(250,250,247,0.4);
+}
+
 .plan ul {
   list-style: none;
   display: flex;
@@ -806,6 +834,7 @@ h2 span, h1 span { font-weight: 300; }
   gap: 0.625rem;
   flex: 1;
 }
+
 .plan ul li {
   display: flex;
   align-items: center;
@@ -813,9 +842,275 @@ h2 span, h1 span { font-weight: 300; }
   font-size: 0.875rem;
   color: var(--gray-text);
 }
-.plan.featured ul li { color: rgba(250,250,247,0.7); }
-.plan ul li svg { color: var(--accent); flex-shrink: 0; }
 
+.plan.featured ul li {
+  color: rgba(250,250,247,0.7);
+}
+
+.plan ul li svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+
+/* ---------------------------------------------------------
+   CONTROLES DO CARROSSEL
+   Desktop: escondidos
+--------------------------------------------------------- */
+
+.plan-carousel-controls,
+.plan-carousel-meta {
+  display: none;
+}
+
+
+/* ---------------------------------------------------------
+   MOBILE
+--------------------------------------------------------- */
+
+@media (max-width: 767px) {
+
+  .plans-layout {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  /*
+    Mantém o design dos cards.
+    Apenas transforma o container em uma janela
+    para um card por vez.
+  */
+
+  .plan-list {
+    display: block;
+    position: relative;
+
+    overflow: hidden;
+
+    padding: 0;
+    margin: 0;
+
+    width: 100%;
+  }
+
+  /*
+    O card ocupa praticamente toda a largura disponível,
+    mas mantém uma pequena margem lateral para respirar.
+  */
+
+  .plan-list > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .plan {
+    width: 100%;
+    min-height: 100%;
+
+    /*
+      Não alteramos padding, cor, borda,
+      tipografia ou identidade do card.
+    */
+
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /*
+    Controles ficam abaixo do card.
+  */
+
+  .plan-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+
+    margin-top: 1.25rem;
+  }
+
+  .plan-carousel-controls button {
+    width: 44px;
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid rgba(12,12,12,0.15);
+    border-radius: 50%;
+
+    background: transparent;
+    color: var(--ink);
+
+    cursor: pointer;
+
+    transition:
+      background 0.3s var(--ease),
+      color 0.3s var(--ease),
+      border-color 0.3s var(--ease),
+      transform 0.3s var(--ease);
+  }
+
+  .plan-carousel-controls button:active {
+    transform: scale(0.92);
+  }
+
+  .plan-carousel-controls button:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--white);
+    border-color: var(--ink);
+  }
+
+  .plan-carousel-controls button:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  /*
+    Bolinhas
+  */
+
+  .plan-carousel-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    margin-top: 1rem;
+  }
+
+  .plan-carousel-dots button {
+    width: 28px;
+    height: 28px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    padding: 0;
+
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .plan-carousel-dots button span {
+    display: block;
+
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: var(--gray-light);
+
+    transition:
+      width 0.3s var(--ease),
+      background 0.3s var(--ease),
+      transform 0.3s var(--ease);
+  }
+
+  .plan-carousel-dots button.active span {
+    width: 8px;
+    height: 8px;
+
+    background: var(--accent);
+
+    transform: scale(1.05);
+  }
+
+  /*
+    "1 de 3 · Deslize"
+  */
+
+  .plan-carousel-meta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+
+    margin-top: 0.35rem;
+
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+
+    color: var(--gray-text);
+  }
+
+  .plan-carousel-meta .separator {
+    color: var(--gray-light);
+  }
+
+  .plan-carousel-meta .swipe-hint {
+    color: var(--gray-mid);
+  }
+
+  /*
+    Botão do plano continua confortável no celular.
+  */
+
+  .plan .button {
+    min-height: 52px;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   DESKTOP
+--------------------------------------------------------- */
+
+@media (min-width: 768px) {
+
+  .plans-layout {
+    grid-template-columns: 1fr 2fr;
+    gap: 4rem;
+  }
+
+  .plan-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+
+  .plan-list > * {
+    min-width: 0;
+  }
+
+  .plan-carousel-controls,
+  .plan-carousel-meta {
+    display: none;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   TOUCH
+--------------------------------------------------------- */
+
+@media (hover: none) and (pointer: coarse) {
+
+  .plan:hover {
+    transform: none;
+    border-color: rgba(12,12,12,0.06);
+  }
+
+  .plan-carousel-controls button:hover:not(:disabled) {
+    background: transparent;
+    color: var(--ink);
+    border-color: rgba(12,12,12,0.15);
+  }
+}
 .social-proof { background: var(--bg-alt); }
 .social-header {
   display: flex;
