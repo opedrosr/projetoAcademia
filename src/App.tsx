@@ -35,6 +35,7 @@ import {
   type ReactNode,
   type Ref,
   type FormEvent,
+  type CSSProperties,
 } from 'react';
 
 import { gym, type Modality } from '@/data/gym';
@@ -61,6 +62,27 @@ function whatsappUrl(
 
 function safeArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function useIsMobile(query = '(max-width: 767px)') {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia(query).matches
+      : false,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const handler = () => setMatches(media.matches);
+
+    handler();
+    media.addEventListener('change', handler);
+
+    return () =>
+      media.removeEventListener('change', handler);
+  }, [query]);
+
+  return matches;
 }
 
 /* =========================================================
@@ -741,6 +763,14 @@ export default function App() {
   const [activeSection, setActiveSection] =
     useState('experiencia');
 
+  const [activePlan, setActivePlan] =
+    useState(0);
+
+  const plansRef =
+    useRef<HTMLDivElement>(null);
+
+  const isMobile = useIsMobile();
+
   const reduced = useReducedMotion();
 
   const anim = useHeroAnimation();
@@ -1061,6 +1091,82 @@ export default function App() {
     plans.length > 0
       ? plans
       : fallbackPlans;
+
+  /* -------------------------------------------------------
+     PLANS CAROUSEL (mobile)
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    setActivePlan(0);
+  }, [isMobile]);
+
+  const getPlanStep = () => {
+    const el = plansRef.current;
+
+    if (!el) return 0;
+
+    const first = el.children[0] as
+      | HTMLElement
+      | undefined;
+    const second = el.children[1] as
+      | HTMLElement
+      | undefined;
+
+    if (first && second) {
+      return second.offsetLeft - first.offsetLeft;
+    }
+
+    return el.clientWidth;
+  };
+
+  const handlePlansScroll = () => {
+    const el = plansRef.current;
+    const step = getPlanStep();
+
+    if (!el || !step) return;
+
+    const index = Math.max(
+      0,
+      Math.min(
+        visiblePlans.length - 1,
+        Math.round(el.scrollLeft / step),
+      ),
+    );
+
+    setActivePlan((current) =>
+      current === index ? current : index,
+    );
+  };
+
+  const goToPlan = (index: number) => {
+    const el = plansRef.current;
+
+    if (!el) return;
+
+    el.scrollTo({
+      left: index * getPlanStep(),
+      behavior: reduced ? 'auto' : 'smooth',
+    });
+  };
+
+  const planScrollerStyle: CSSProperties = {
+    display: 'flex',
+    gap: '1rem',
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    scrollSnapType: 'x mandatory',
+    overscrollBehaviorX: 'contain',
+    WebkitOverflowScrolling: 'touch',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+  };
+
+  const planCardMobileStyle: CSSProperties = {
+    flex: '0 0 100%',
+    scrollSnapAlign: 'start',
+    scrollSnapStop: 'always',
+    touchAction: 'pan-x pan-y',
+  };
 
   const fallbackTestimonials = [
     {
@@ -2063,28 +2169,24 @@ export default function App() {
                   index;
 
                 return (
-                  <motion.button
-                    type="button"
+                  <motion.div
                     key={
                       modality.id ??
                       modality.name ??
                       index
                     }
-                    className={`modality-item ${
-                      active
-                        ? 'active'
-                        : ''
-                    }`}
-                    onClick={() =>
-                      setActiveModality(
-                        index,
-                      )
-                    }
+                    className="modality-entry"
+                    style={{
+                      borderBottom:
+                        '1px solid rgba(12,12,12,0.08)',
+                    }}
                     initial={{
                       opacity: 0,
-                      x: reduced
-                        ? 0
-                        : 45,
+                      x:
+                        reduced ||
+                        isMobile
+                          ? 0
+                          : 45,
                     }}
                     whileInView={{
                       opacity: 1,
@@ -2103,55 +2205,86 @@ export default function App() {
                         : 0.65,
                       ease,
                     }}
-                    whileHover={{
-                      x: 10,
-                    }}
-                    whileTap={{
-                      scale: 0.985,
-                    }}
                   >
-                    <span>
-                      {String(
-                        index + 1,
-                      ).padStart(2, '0')}
-                    </span>
+                    <motion.button
+                      type="button"
+                      className={`modality-item ${
+                        active
+                          ? 'active'
+                          : ''
+                      }`}
+                      style={{
+                        borderBottom:
+                          'none',
+                      }}
+                      aria-expanded={
+                        active
+                      }
+                      onClick={() =>
+                        setActiveModality(
+                          index,
+                        )
+                      }
+                      whileHover={
+                        reduced ||
+                        isMobile
+                          ? undefined
+                          : { x: 10 }
+                      }
+                      whileTap={{
+                        scale: 0.985,
+                      }}
+                    >
+                      <span>
+                        {String(
+                          index + 1,
+                        ).padStart(
+                          2,
+                          '0',
+                        )}
+                      </span>
 
-                    <strong>
-                      {modality.name ??
-                        modality.title ??
-                        `Modalidade ${
-                          index + 1
-                        }`}
-                    </strong>
+                      <strong>
+                        {modality.name ??
+                          modality.title ??
+                          `Modalidade ${
+                            index + 1
+                          }`}
+                      </strong>
 
-                    {active ? (
-                      <ChevronRight
-                        size={20}
-                      />
-                    ) : (
-                      <ArrowDownRight
-                        size={19}
-                      />
-                    )}
+                      {active ? (
+                        <ChevronRight
+                          size={20}
+                        />
+                      ) : (
+                        <ArrowDownRight
+                          size={19}
+                        />
+                      )}
+                    </motion.button>
 
-                    <AnimatePresence>
+                    <AnimatePresence
+                      initial={false}
+                    >
                       {active && (
                         <motion.div
-                          className="modality-description"
+                          key="description"
+                          style={{
+                            overflow:
+                              'hidden',
+                          }}
                           initial={{
                             opacity: 0,
                             height: 0,
-                            y: -10,
                           }}
                           animate={{
                             opacity: 1,
-                            height: 'auto',
-                            y: 0,
+                            height:
+                              'auto',
                           }}
                           exit={{
                             opacity: 0,
                             height: 0,
-                            y: -10,
                           }}
                           transition={{
                             duration: reduced
@@ -2160,59 +2293,32 @@ export default function App() {
                             ease,
                           }}
                         >
-                          {modality.description ??
-                            modality.text ??
-                            'Uma experiência de treino pensada para diferentes objetivos.'}
+                          <p
+                            className="modality-description"
+                            style={{
+                              width:
+                                '100%',
+                              maxWidth:
+                                '44ch',
+                              paddingTop:
+                                '0.25rem',
+                              paddingRight:
+                                '1rem',
+                              paddingBottom:
+                                '1.5rem',
+                            }}
+                          >
+                            {modality.description ??
+                              modality.text ??
+                              'Uma experiência de treino pensada para diferentes objetivos.'}
+                          </p>
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </motion.button>
+                  </motion.div>
                 );
               },
             )}
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '0.5rem',
-                marginTop: '1rem',
-              }}
-            >
-              <motion.button
-                type="button"
-                className="round-link"
-                onClick={() =>
-                  changeModality(-1)
-                }
-                aria-label="Modalidade anterior"
-                whileHover={{
-                  scale: 1.08,
-                }}
-                whileTap={{
-                  scale: 0.9,
-                }}
-              >
-                <ChevronLeft size={18} />
-              </motion.button>
-
-              <motion.button
-                type="button"
-                className="round-link"
-                onClick={() =>
-                  changeModality(1)
-                }
-                aria-label="Próxima modalidade"
-                whileHover={{
-                  scale: 1.08,
-                }}
-                whileTap={{
-                  scale: 0.9,
-                }}
-              >
-                <ChevronRight size={18} />
-              </motion.button>
-            </div>
           </div>
         </div>
       </section>
@@ -2279,7 +2385,56 @@ export default function App() {
             </div>
           </Reveal>
 
-          <div className="plan-list">
+          <motion.div
+            initial={
+              isMobile && !reduced
+                ? { opacity: 0, y: 24 }
+                : false
+            }
+            whileInView={{
+              opacity: 1,
+              y: 0,
+            }}
+            viewport={{
+              once: true,
+              amount: 0.1,
+            }}
+            transition={{
+              duration: reduced
+                ? 0.01
+                : 0.7,
+              ease,
+            }}
+          >
+          <div
+            ref={plansRef}
+            className="plan-list"
+            onScroll={
+              isMobile
+                ? handlePlansScroll
+                : undefined
+            }
+            style={
+              isMobile
+                ? planScrollerStyle
+                : undefined
+            }
+            role={
+              isMobile
+                ? 'region'
+                : undefined
+            }
+            aria-roledescription={
+              isMobile
+                ? 'carrossel'
+                : undefined
+            }
+            aria-label={
+              isMobile
+                ? 'Planos'
+                : undefined
+            }
+          >
             {visiblePlans.map(
               (
                 plan: any,
@@ -2297,17 +2452,34 @@ export default function App() {
                       ? 'featured'
                       : ''
                   }`}
-                  initial={{
-                    opacity: 0,
-                    y: reduced ? 0 : 90,
-                    rotateX:
-                      reduced ? 0 : 8,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                    rotateX: 0,
-                  }}
+                  style={
+                    isMobile
+                      ? planCardMobileStyle
+                      : undefined
+                  }
+                  initial={
+                    isMobile
+                      ? false
+                      : {
+                          opacity: 0,
+                          y: reduced
+                            ? 0
+                            : 90,
+                          rotateX:
+                            reduced
+                              ? 0
+                              : 8,
+                        }
+                  }
+                  whileInView={
+                    isMobile
+                      ? undefined
+                      : {
+                          opacity: 1,
+                          y: 0,
+                          rotateX: 0,
+                        }
+                  }
                   viewport={{
                     once: true,
                     amount: 0.2,
@@ -2322,7 +2494,7 @@ export default function App() {
                     ease,
                   }}
                   whileHover={
-                    reduced
+                    reduced || isMobile
                       ? undefined
                       : {
                           y: -10,
@@ -2430,6 +2602,104 @@ export default function App() {
               ),
             )}
           </div>
+
+          {isMobile &&
+            visiblePlans.length > 1 && (
+              <>
+                <div
+                  className="plan-carousel-dots"
+                  role="tablist"
+                  aria-label="Escolher plano"
+                >
+                  {visiblePlans.map(
+                    (
+                      plan: any,
+                      index: number,
+                    ) => (
+                      <button
+                        key={
+                          plan.id ??
+                          plan.name ??
+                          index
+                        }
+                        type="button"
+                        role="tab"
+                        aria-selected={
+                          index ===
+                          activePlan
+                        }
+                        aria-label={`Ver plano ${
+                          plan.name ??
+                          plan.title ??
+                          index + 1
+                        }`}
+                        className={
+                          index ===
+                          activePlan
+                            ? 'active'
+                            : ''
+                        }
+                        onClick={() =>
+                          goToPlan(index)
+                        }
+                      >
+                        <span />
+                      </button>
+                    ),
+                  )}
+                </div>
+
+                <div
+                  className="plan-carousel-meta"
+                  aria-live="polite"
+                >
+                  <span>
+                    {activePlan + 1} de{' '}
+                    {visiblePlans.length}
+                  </span>
+
+                  <span className="separator">
+                    ·
+                  </span>
+
+                  <span
+                    className="swipe-hint"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems:
+                        'center',
+                      gap: '0.375rem',
+                    }}
+                  >
+                    Deslize
+                    <motion.span
+                      aria-hidden="true"
+                      style={{
+                        display:
+                          'inline-flex',
+                      }}
+                      animate={
+                        reduced
+                          ? undefined
+                          : {
+                              x: [0, 4, 0],
+                            }
+                      }
+                      transition={{
+                        duration: 1.4,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    >
+                      <ArrowRight
+                        size={12}
+                      />
+                    </motion.span>
+                  </span>
+                </div>
+              </>
+            )}
+          </motion.div>
         </div>
       </section>
 
