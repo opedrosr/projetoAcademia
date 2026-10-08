@@ -1100,6 +1100,23 @@ export default function App() {
     setActivePlan(0);
   }, [isMobile]);
 
+  /* Trava o zoom-out: a página nunca fica menor que a tela.
+     O zoom-in continua liberado. */
+  useEffect(() => {
+    let meta = document.querySelector<HTMLMetaElement>(
+      'meta[name="viewport"]',
+    );
+
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'viewport';
+      document.head.appendChild(meta);
+    }
+
+    meta.content =
+      'width=device-width, initial-scale=1, minimum-scale=1';
+  }, []);
+
   const getPlanStep = () => {
     const el = plansRef.current;
 
@@ -1125,13 +1142,19 @@ export default function App() {
 
     if (!el || !step) return;
 
-    const index = Math.max(
-      0,
-      Math.min(
-        visiblePlans.length - 1,
-        Math.round(el.scrollLeft / step),
-      ),
-    );
+    const atEnd =
+      el.scrollLeft >=
+      el.scrollWidth - el.clientWidth - 2;
+
+    const index = atEnd
+      ? visiblePlans.length - 1
+      : Math.max(
+          0,
+          Math.min(
+            visiblePlans.length - 1,
+            Math.round(el.scrollLeft / step),
+          ),
+        );
 
     setActivePlan((current) =>
       current === index ? current : index,
@@ -1150,6 +1173,9 @@ export default function App() {
   };
 
   const planScrollerStyle: CSSProperties = {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
     display: 'flex',
     gap: '1rem',
     overflowX: 'auto',
@@ -1162,7 +1188,9 @@ export default function App() {
   };
 
   const planCardMobileStyle: CSSProperties = {
-    flex: '0 0 100%',
+    flex: '0 0 min(100%, 24rem)',
+    minWidth: 0,
+    maxWidth: '100%',
     scrollSnapAlign: 'start',
     scrollSnapStop: 'always',
     touchAction: 'pan-x pan-y',
@@ -1285,7 +1313,18 @@ export default function App() {
     )}`;
 
   return (
-    <div className="site-shell">
+    <div
+      className="site-shell"
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        overflowX:
+          typeof CSS !== 'undefined' &&
+          CSS.supports('overflow-x', 'clip')
+            ? 'clip'
+            : 'hidden',
+      }}
+    >
 
       {/* =====================================================
           READING PROGRESS
@@ -2356,7 +2395,18 @@ export default function App() {
         id="planos"
         className="section-pad"
       >
-        <div className="plans-layout">
+        <div
+          className="plans-layout"
+          style={
+            isMobile
+              ? {
+                  gridTemplateColumns:
+                    'minmax(0, 1fr)',
+                  minWidth: 0,
+                }
+              : undefined
+          }
+        >
           <Reveal direction="left">
             <div className="plans-intro">
               <span className="eyebrow">
@@ -2386,6 +2436,10 @@ export default function App() {
           </Reveal>
 
           <motion.div
+            style={{
+              minWidth: 0,
+              maxWidth: '100%',
+            }}
             initial={
               isMobile && !reduced
                 ? { opacity: 0, y: 24 }
