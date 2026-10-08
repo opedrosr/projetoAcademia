@@ -1,39 +1,40 @@
 import {
   AnimatePresence,
-  animate,
   motion,
   useInView,
   useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
 } from 'framer-motion';
 
 import {
+  ArrowDownRight,
+  ArrowRight,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Crosshair,
-  Home,
+  Dumbbell,
   Instagram,
   MapPin,
   Menu,
   MessageCircle,
-  Navigation,
+  MoveUpRight,
   Plus,
   Star,
   X,
-  Dumbbell,
-  CalendarDays,
+  Home,
 } from 'lucide-react';
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
+  type Ref,
+  type FormEvent,
 } from 'react';
 
 import { gym, type Modality } from '@/data/gym';
@@ -49,62 +50,80 @@ const navLinks = [
 ] as const;
 
 /* =========================================================
-   WHATSAPP
+   HELPERS
 ========================================================= */
 
-function whatsappUrl(message: string) {
+function whatsappUrl(
+  message = 'Olá! Quero conhecer a Áurea e agendar uma aula.',
+) {
   return `https://wa.me/${gym.whatsapp}?text=${encodeURIComponent(message)}`;
 }
 
-function WhatsAppButton({
-  label = 'Agendar aula experimental',
-  dark = false,
-  message = 'Olá! Vim pelo site e gostaria de agendar uma aula experimental.',
-}: {
-  label?: string;
-  dark?: boolean;
-  message?: string;
-}) {
-  return (
-    <a
-      className={`button ${dark ? 'button-dark' : ''}`}
-      href={whatsappUrl(message)}
-      target="_blank"
-      rel="noreferrer"
-    >
-      {label}
-    </a>
-  );
+function safeArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
 }
 
 /* =========================================================
-   REVEAL
+   REVEAL CINEMÁTICO
 ========================================================= */
 
 function Reveal({
   children,
-  delay = 0,
   className = '',
+  delay = 0,
+  amount = 0.2,
+  direction = 'up',
 }: {
   children: ReactNode;
-  delay?: number;
   className?: string;
+  delay?: number;
+  amount?: number;
+  direction?: 'up' | 'left' | 'right' | 'down';
 }) {
-  const reduce = useReducedMotion();
+  const reduced = useReducedMotion();
 
-  if (reduce) {
-    return <div className={className}>{children}</div>;
-  }
+  const initial =
+    direction === 'left'
+      ? {
+          opacity: 0,
+          x: reduced ? 0 : -90,
+          clipPath: 'inset(0 12% 0 0)',
+        }
+      : direction === 'right'
+        ? {
+            opacity: 0,
+            x: reduced ? 0 : 90,
+            clipPath: 'inset(0 0 0 12%)',
+          }
+        : direction === 'down'
+          ? {
+              opacity: 0,
+              y: reduced ? 0 : -80,
+              clipPath: 'inset(0 0 14% 0)',
+            }
+          : {
+              opacity: 0,
+              y: reduced ? 0 : 90,
+              clipPath: 'inset(14% 0 0 0)',
+            };
 
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
+      initial={initial}
+      whileInView={{
+        opacity: 1,
+        x: 0,
+        y: 0,
+        clipPath: 'inset(0 0 0 0)',
+      }}
+      viewport={{
+        once: true,
+        amount,
+      }}
       transition={{
-        duration: 0.9,
-        delay,
+        duration: reduced ? 0.01 : 1.05,
+        delay: reduced ? 0 : delay,
         ease,
       }}
     >
@@ -114,90 +133,241 @@ function Reveal({
 }
 
 /* =========================================================
+   IMAGEM CINEMÁTICA
+========================================================= */
+
+function CinematicImage({
+  src,
+  alt,
+  className,
+  caption,
+  priority = false,
+  direction = 'up',
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  caption?: string;
+  priority?: boolean;
+  direction?: 'up' | 'left' | 'right';
+}) {
+  const reduced = useReducedMotion();
+
+  const ref = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  });
+
+  const imageYRange: [number, number, number] = reduced
+    ? [0, 0, 0]
+    : [55, 0, -55];
+
+  const imageScaleRange: [number, number, number] = reduced
+    ? [1, 1, 1]
+    : [1.12, 1, 1.08];
+
+  const imageY = useTransform(
+    scrollYProgress,
+    [0, 0.5, 1],
+    imageYRange,
+  );
+
+  const imageScale = useTransform(
+    scrollYProgress,
+    [0, 0.5, 1],
+    imageScaleRange,
+  );
+
+  const clipInitial =
+    direction === 'left'
+      ? 'inset(0 14% 0 0)'
+      : direction === 'right'
+        ? 'inset(0 0 0 14%)'
+        : 'inset(14% 0 0 0)';
+
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial={{
+        opacity: 0,
+        clipPath: clipInitial,
+      }}
+      whileInView={{
+        opacity: 1,
+        clipPath: 'inset(0 0 0 0)',
+      }}
+      viewport={{
+        once: true,
+        amount: 0.2,
+      }}
+      transition={{
+        duration: reduced ? 0.01 : 1.15,
+        ease,
+      }}
+    >
+      <motion.img
+        src={src}
+        alt={alt}
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
+        decoding="async"
+        style={{
+          y: imageY,
+          scale: imageScale,
+        }}
+      />
+
+      {caption && (
+        <div className="image-caption">
+          {caption}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+/* =========================================================
+   BOTÃO
+========================================================= */
+
+function WhatsAppButton({
+  children,
+  message,
+  className = '',
+  dark = false,
+}: {
+  children: ReactNode;
+  message?: string;
+  className?: string;
+  dark?: boolean;
+}) {
+  return (
+    <motion.a
+      href={whatsappUrl(message)}
+      target="_blank"
+      rel="noreferrer"
+      className={`button ${dark ? 'button-dark' : ''} ${className}`}
+      whileHover={{
+        y: -5,
+        scale: 1.025,
+      }}
+      whileTap={{
+        scale: 0.96,
+      }}
+      transition={{
+        duration: 0.3,
+        ease,
+      }}
+    >
+      {children}
+      <ArrowRight size={16} />
+    </motion.a>
+  );
+}
+
+/* =========================================================
    COUNTER
 ========================================================= */
 
-type ParsedStat = {
-  prefix: string;
-  suffix: string;
-  target: number;
-  decimals: number;
-  pad: number;
-  grouped: boolean;
-};
+function parseStat(value: string | number) {
+  const raw = String(value);
+  const match = raw.match(/^([\d.,]+)(.*)$/);
 
-function parseStat(value: string): ParsedStat | null {
-  const match = value.match(/^(\D*?)(\d[\d.,]*)(\D*)$/);
+  if (!match) {
+    return {
+      number: 0,
+      suffix: raw,
+      decimal: false,
+    };
+  }
 
-  if (!match) return null;
-
-  const [, prefix, num, suffix] = match;
+  const numeric = match[1]
+    .replace(/\./g, '')
+    .replace(',', '.');
 
   return {
-    prefix,
-    suffix,
-    target: parseFloat(num.replace(/\./g, '').replace(',', '.')),
-    decimals: num.includes(',') ? num.split(',')[1].length : 0,
-    pad: /^0\d+$/.test(num) ? num.length : 0,
-    grouped: num.includes('.'),
+    number: Number(numeric) || 0,
+    suffix: match[2] ?? '',
+    decimal: numeric.includes('.'),
   };
-}
-
-function formatStat(p: ParsedStat, n: number) {
-  const body = p.pad
-    ? String(Math.round(n)).padStart(p.pad, '0')
-    : new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: p.decimals,
-        maximumFractionDigits: p.decimals,
-        useGrouping: p.grouped,
-      }).format(n);
-
-  return `${p.prefix}${body}${p.suffix}`;
 }
 
 function Counter({
   value,
-  label,
+  duration = 1.8,
 }: {
-  value: string;
-  label: string;
+  value: string | number;
+  duration?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+
+  const ref = useRef<HTMLSpanElement>(null);
 
   const inView = useInView(ref, {
     once: true,
-    margin: '-80px',
+    amount: 0.7,
   });
-
-  const reduce = useReducedMotion();
 
   const parsed = useMemo(
     () => parseStat(value),
-    [value]
+    [value],
   );
 
-  const [text, setText] = useState(() =>
-    parsed && !reduce ? formatStat(parsed, 0) : value
+  const [current, setCurrent] = useState(
+    reduced ? parsed.number : 0,
   );
 
   useEffect(() => {
-    if (!parsed || reduce || !inView) return;
+    if (!inView || reduced) {
+      if (reduced) {
+        setCurrent(parsed.number);
+      }
 
-    const controls = animate(0, parsed.target, {
-      duration: 1.8,
-      ease,
-      onUpdate: (v) => setText(formatStat(parsed, v)),
-      onComplete: () => setText(value),
-    });
+      return;
+    }
 
-    return () => controls.stop();
-  }, [inView, parsed, reduce, value]);
+    let frame = 0;
+
+    const start = performance.now();
+
+    const tick = (time: number) => {
+      const progress = Math.min(
+        (time - start) / (duration * 1000),
+        1,
+      );
+
+      const eased =
+        1 - Math.pow(1 - progress, 4);
+
+      setCurrent(parsed.number * eased);
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    duration,
+    inView,
+    parsed.number,
+    reduced,
+  ]);
+
+  const formatted = parsed.decimal
+    ? current.toFixed(1).replace('.', ',')
+    : Math.round(current).toString();
 
   return (
-    <div className="stat" ref={ref}>
-      <strong>{text}</strong>
-      <span>{label}</span>
-    </div>
+    <span ref={ref}>
+      {formatted}
+      {parsed.suffix}
+    </span>
   );
 }
 
@@ -205,353 +375,335 @@ function Counter({
    STATUS DA ACADEMIA
 ========================================================= */
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function getGymStatus() {
+  const now = new Date();
 
-const DAY_LABEL: Record<string, string> = {
-  Sun: 'domingo',
-  Mon: 'segunda',
-  Tue: 'terça',
-  Wed: 'quarta',
-  Thu: 'quinta',
-  Fri: 'sexta',
-  Sat: 'sábado',
-};
+  const day = now.getDay();
 
-const HOURS: Record<string, [number, number] | null> = {
-  Mon: [6, 23],
-  Tue: [6, 23],
-  Wed: [6, 23],
-  Thu: [6, 23],
-  Fri: [6, 23],
-  Sat: [8, 14],
-  Sun: null,
-};
+  const hour =
+    now.getHours() +
+    now.getMinutes() / 60;
 
-function getGymStatus(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now);
-
-  const get = (type: string) =>
-    parts.find((p) => p.type === type)?.value ?? '';
-
-  const day = get('weekday');
-  const hour = Number(get('hour')) % 24;
-  const minute = Number(get('minute'));
-
-  const minutes = hour * 60 + minute;
-
-  const range = HOURS[day];
+  const weekday =
+    day >= 1 && day <= 6;
 
   const open =
-    !!range &&
-    minutes >= range[0] * 60 &&
-    minutes < range[1] * 60;
-
-  let note = '';
-
-  if (open && range) {
-    note = `Fecha às ${range[1]}h`;
-  } else {
-    const dayIdx = DAYS.indexOf(day);
-
-    for (let i = 0; i < 8; i++) {
-      const idx = (dayIdx + i) % 7;
-      const r = HOURS[DAYS[idx]];
-
-      if (!r || (i === 0 && minutes >= r[0] * 60)) {
-        continue;
-      }
-
-      note =
-        i === 0
-          ? `Abre hoje às ${r[0]}h`
-          : i === 1
-            ? `Abre amanhã às ${r[0]}h`
-            : `Abre ${DAY_LABEL[DAYS[idx]]} às ${r[0]}h`;
-
-      break;
-    }
-  }
+    weekday &&
+    hour >= 6 &&
+    hour < 22;
 
   return {
-    time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(
-      2,
-      '0'
-    )}`,
     open,
-    note,
+    label: open
+      ? 'Aberta agora'
+      : 'Fechada agora',
   };
 }
 
 function useGymStatus() {
-  const [status, setStatus] = useState(() => getGymStatus());
+  const [status, setStatus] =
+    useState(getGymStatus());
 
   useEffect(() => {
-    const id = window.setInterval(
-      () => setStatus(getGymStatus()),
-      30_000
-    );
+    const update = () =>
+      setStatus(getGymStatus());
 
-    return () => window.clearInterval(id);
+    update();
+
+    const interval =
+      window.setInterval(
+        update,
+        60_000,
+      );
+
+    return () =>
+      window.clearInterval(interval);
   }, []);
 
   return status;
 }
 
 /* =========================================================
-   BOOKING MOBILE BOTTOM SHEET
+   QUOTE SCENE
 ========================================================= */
 
-const periods = {
-  Manhã: 'no período da manhã',
-  Tarde: 'no período da tarde',
-  Noite: 'no período da noite',
-} as const;
+function QuoteScene({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const reduced = useReducedMotion();
 
-const goals = [
-  'Emagrecer',
-  'Ganhar massa',
-  'Saúde e bem-estar',
-  'Condicionamento',
-];
+  const ref =
+    useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } =
+    useScroll({
+      target: ref,
+      offset: [
+        'start end',
+        'end start',
+      ],
+    });
+
+  const quoteYRange: [number, number, number] =
+    reduced
+      ? [0, 0, 0]
+      : [70, 0, -50];
+
+  const quoteScaleRange: [number, number, number] =
+    reduced
+      ? [1, 1, 1]
+      : [0.9, 1, 0.96];
+
+  const quoteOpacityRange: [
+    number,
+    number,
+    number,
+    number,
+  ] = reduced
+    ? [1, 1, 1, 1]
+    : [0.55, 1, 1, 0.6];
+
+  const y = useTransform(
+    scrollYProgress,
+    [0, 0.5, 1],
+    quoteYRange,
+  );
+
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 0.45, 1],
+    quoteScaleRange,
+  );
+
+  const opacity = useTransform(
+    scrollYProgress,
+    [0, 0.22, 0.78, 1],
+    quoteOpacityRange,
+  );
+
+  return (
+    <motion.div
+      ref={ref}
+      className="quote-break"
+      style={{
+        y,
+        scale,
+        opacity,
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* =========================================================
+   BOOKING
+========================================================= */
 
 function BookingModal({
   onClose,
 }: {
   onClose: () => void;
 }) {
-  const [name, setName] = useState('');
+  const reduced = useReducedMotion();
+
+  const [name, setName] =
+    useState('');
+
   const [period, setPeriod] =
-    useState<keyof typeof periods | null>(null);
-  const [goal, setGoal] = useState<string | null>(null);
+    useState('Manhã');
 
-  const startY = useRef<number | null>(null);
-  const currentY = useRef<number | null>(null);
+  const [goal, setGoal] =
+    useState(
+      'Conhecer a academia',
+    );
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
+  const touchStart =
+    useRef<number | null>(null);
 
-    const previous = document.body.style.overflow;
-
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [onClose]);
-
-  const submit = (event: FormEvent) => {
+  const submit = (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
 
-    let message =
-      `Olá! Me chamo ${name.trim()} e gostaria de agendar ` +
-      `uma aula experimental na ${gym.name}`;
-
-    if (period) {
-      message += ` ${periods[period]}`;
-    }
-
-    message += '.';
-
-    if (goal) {
-      message += ` Meu objetivo é: ${goal.toLowerCase()}.`;
-    }
+    const message = [
+      'Olá! Quero agendar uma aula na Áurea.',
+      name
+        ? `Meu nome é ${name}.`
+        : '',
+      `Prefiro ${period.toLowerCase()}.`,
+      `Objetivo: ${goal}.`,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     window.open(
       whatsappUrl(message),
       '_blank',
-      'noopener'
+      'noopener,noreferrer',
     );
 
     onClose();
   };
 
-  const handleTouchStart = (
-    event: React.TouchEvent<HTMLDivElement>
-  ) => {
-    startY.current = event.touches[0].clientY;
-    currentY.current = startY.current;
-  };
-
-  const handleTouchMove = (
-    event: React.TouchEvent<HTMLDivElement>
-  ) => {
-    currentY.current = event.touches[0].clientY;
-  };
-
-  const handleTouchEnd = () => {
-    if (
-      startY.current === null ||
-      currentY.current === null
-    ) {
-      return;
-    }
-
-    const distance =
-      currentY.current - startY.current;
-
-    if (distance > 100) {
-      onClose();
-    }
-
-    startY.current = null;
-    currentY.current = null;
-  };
-
   return (
     <motion.div
       className="booking-backdrop"
-      data-lenis-prevent
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{
+        opacity: 0,
+      }}
+      animate={{
+        opacity: 1,
+      }}
+      exit={{
+        opacity: 0,
+      }}
+      transition={{
+        duration: reduced ? 0.01 : 0.35,
+      }}
       onClick={onClose}
     >
       <motion.div
         className="booking-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="booking-title"
         initial={{
-          y: 60,
           opacity: 0,
+          y: reduced ? 0 : 100,
+          scale: reduced ? 1 : 0.92,
+          clipPath: reduced
+            ? 'inset(0 0 0 0)'
+            : 'inset(12% 0 0 0)',
         }}
         animate={{
-          y: 0,
           opacity: 1,
+          y: 0,
+          scale: 1,
+          clipPath: 'inset(0 0 0 0)',
         }}
         exit={{
-          y: 60,
           opacity: 0,
+          y: 50,
+          scale: 0.96,
         }}
         transition={{
-          duration: 0.45,
+          duration: reduced ? 0.01 : 0.65,
           ease,
         }}
         onClick={(event) =>
           event.stopPropagation()
         }
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="booking-drag-handle">
-          <span />
-        </div>
+        onTouchStart={(event) => {
+          touchStart.current =
+            event.touches[0]?.clientY ?? null;
+        }}
+        onTouchEnd={(event) => {
+          if (
+            touchStart.current === null
+          ) {
+            return;
+          }
 
+          const end =
+            event.changedTouches[0]
+              ?.clientY ??
+            touchStart.current;
+
+          const delta =
+            end - touchStart.current;
+
+          if (delta > 90) {
+            onClose();
+          }
+
+          touchStart.current = null;
+        }}
+      >
         <button
+          type="button"
           className="modal-close"
           onClick={onClose}
           aria-label="Fechar"
-          type="button"
         >
           <X size={18} />
         </button>
 
-        <p className="eyebrow">
-          Seu primeiro passo
-        </p>
+        <span className="eyebrow">
+          Primeiro passo
+        </span>
 
-        <h2 id="booking-title">
-          Vamos encontrar <span>seu horário.</span>
+        <h2>
+          Conheça a <em>Áurea.</em>
         </h2>
 
         <p>
-          Conte um pouco sobre você e a gente
-          continua a conversa pelo WhatsApp.
+          Preencha os dados abaixo. Você será
+          direcionado para o WhatsApp para
+          confirmar o melhor horário.
         </p>
 
         <form onSubmit={submit}>
-          <div className="field">
-            <label
-              className="field-label"
-              htmlFor="booking-name"
-            >
-              Seu nome
-            </label>
+          <label>
+            Seu nome
 
             <input
-              id="booking-name"
-              className="input"
+              required
               value={name}
-              onChange={(e) =>
-                setName(e.target.value)
+              onChange={(event) =>
+                setName(event.target.value)
               }
               placeholder="Como podemos te chamar?"
-              required
-              autoComplete="given-name"
-              autoFocus
             />
-          </div>
+          </label>
 
-          <fieldset className="field">
-            <legend className="field-label">
-              Melhor período
-            </legend>
+          <label>
+            Melhor período
 
-            <div className="chips">
-              {(
-                Object.keys(periods) as
-                  (keyof typeof periods)[]
-              ).map((p) => (
-                <button
-                  type="button"
-                  key={p}
-                  className="chip"
-                  aria-pressed={period === p}
-                  onClick={() =>
-                    setPeriod(
-                      period === p ? null : p
-                    )
-                  }
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+            <select
+              value={period}
+              onChange={(event) =>
+                setPeriod(event.target.value)
+              }
+            >
+              <option>Manhã</option>
+              <option>Tarde</option>
+              <option>Noite</option>
+            </select>
+          </label>
 
-          <fieldset className="field">
-            <legend className="field-label">
-              Seu objetivo
-            </legend>
+          <label>
+            Seu objetivo
 
-            <div className="chips">
-              {goals.map((g) => (
-                <button
-                  type="button"
-                  key={g}
-                  className="chip"
-                  aria-pressed={goal === g}
-                  onClick={() =>
-                    setGoal(
-                      goal === g ? null : g
-                    )
-                  }
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+            <select
+              value={goal}
+              onChange={(event) =>
+                setGoal(event.target.value)
+              }
+            >
+              <option>
+                Conhecer a academia
+              </option>
+              <option>
+                Ganhar força
+              </option>
+              <option>
+                Melhorar condicionamento
+              </option>
+              <option>
+                Mudar composição corporal
+              </option>
+              <option>
+                Voltar a treinar
+              </option>
+            </select>
+          </label>
 
           <button
-            className="button booking-submit"
             type="submit"
+            className="button"
           >
             Continuar no WhatsApp
-            <MessageCircle size={18} />
+            <ArrowRight size={16} />
           </button>
         </form>
       </motion.div>
@@ -560,99 +712,25 @@ function BookingModal({
 }
 
 /* =========================================================
-   MOBILE BOTTOM NAV
-========================================================= */
-
-function MobileBottomNav({
-  activeSection,
-  onBooking,
-}: {
-  activeSection: string;
-  onBooking: () => void;
-}) {
-  return (
-    <nav
-      className="mobile-bottom-nav"
-      aria-label="Navegação rápida"
-    >
-      <a
-        href="#top"
-        className={
-          activeSection === 'top'
-            ? 'active'
-            : ''
-        }
-      >
-        <Home size={19} />
-        <span>Início</span>
-      </a>
-
-      <a
-        href="#experiencia"
-        className={
-          activeSection === 'experiencia'
-            ? 'active'
-            : ''
-        }
-      >
-        <Dumbbell size={19} />
-        <span>Experiência</span>
-      </a>
-
-      <a
-        href="#modalidades"
-        className={
-          activeSection === 'modalidades'
-            ? 'active'
-            : ''
-        }
-      >
-        <Navigation size={19} />
-        <span>Treinos</span>
-      </a>
-
-      <a
-        href="#planos"
-        className={
-          activeSection === 'planos'
-            ? 'active'
-            : ''
-        }
-      >
-        <CalendarDays size={19} />
-        <span>Planos</span>
-      </a>
-
-      <button
-        type="button"
-        className="bottom-booking"
-        onClick={onBooking}
-      >
-        <MessageCircle size={19} />
-        <span>Agendar</span>
-      </button>
-    </nav>
-  );
-}
-
-/* =========================================================
    APP
 ========================================================= */
 
-function App() {
+export default function App() {
   const [menuOpen, setMenuOpen] =
     useState(false);
 
-  const [activeModality, setActiveModality] =
-    useState<Modality>(
-      gym.modalities[0]
-    );
+  const [
+    activeModality,
+    setActiveModality,
+  ] = useState(0);
 
   const [activeFaq, setActiveFaq] =
-    useState<number | null>(0);
+    useState<number | null>(null);
 
-  const [activeTestimonial, setActiveTestimonial] =
-    useState(0);
+  const [
+    activeTestimonial,
+    setActiveTestimonial,
+  ] = useState(0);
 
   const [showBooking, setShowBooking] =
     useState(false);
@@ -661,207 +739,517 @@ function App() {
     useState(false);
 
   const [activeSection, setActiveSection] =
-    useState('top');
+    useState('experiencia');
 
-  const closeBooking = useCallback(
-    () => setShowBooking(false),
-    []
-  );
+  const reduced = useReducedMotion();
 
   const anim = useHeroAnimation();
 
   const status = useGymStatus();
 
-  const testimonial =
-    gym.testimonials[activeTestimonial];
+  const { scrollYProgress } =
+    useScroll();
 
-  /* -----------------------------------------
-     SCROLL / ACTIVE SECTION
-  ----------------------------------------- */
+  const progress = useSpring(
+    scrollYProgress,
+    {
+      stiffness: 90,
+      damping: 28,
+      mass: 0.2,
+    },
+  );
+
+  /* -------------------------------------------------------
+     HERO
+  ------------------------------------------------------- */
+
+  const heroScroll =
+    useScroll({
+      target: anim.heroRef,
+      offset: [
+        'start start',
+        'end start',
+      ],
+    }).scrollYProgress;
+
+  const heroContentYRange: [number, number] =
+    reduced
+      ? [0, 0]
+      : [0, -150];
+
+  const heroContentOpacityRange: [
+    number,
+    number,
+    number,
+  ] = reduced
+    ? [1, 1, 1]
+    : [1, 0.9, 0];
+
+  const heroImageScaleRange: [
+    number,
+    number,
+  ] = reduced
+    ? [1, 1]
+    : [1.02, 1.18];
+
+  const heroImageYRange: [
+    string,
+    string,
+  ] = reduced
+    ? ['0%', '0%']
+    : ['0%', '10%'];
+
+  const heroContentY =
+    useTransform(
+      heroScroll,
+      [0, 1],
+      heroContentYRange,
+    );
+
+  const heroContentOpacity =
+    useTransform(
+      heroScroll,
+      [0, 0.65, 1],
+      heroContentOpacityRange,
+    );
+
+  const heroImageScale =
+    useTransform(
+      heroScroll,
+      [0, 1],
+      heroImageScaleRange,
+    );
+
+  const heroImageY =
+    useTransform(
+      heroScroll,
+      [0, 1],
+      heroImageYRange,
+    );
+
+  /* -------------------------------------------------------
+     SCROLL
+  ------------------------------------------------------- */
 
   useEffect(() => {
-    const sections = [
-      'top',
+    const handleScroll = () => {
+      setScrolled(
+        window.scrollY > 30,
+      );
+    };
+
+    handleScroll();
+
+    window.addEventListener(
+      'scroll',
+      handleScroll,
+      {
+        passive: true,
+      },
+    );
+
+    return () =>
+      window.removeEventListener(
+        'scroll',
+        handleScroll,
+      );
+  }, []);
+
+  /* -------------------------------------------------------
+     ACTIVE SECTION
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    const ids = [
       'experiencia',
       'modalidades',
       'planos',
       'localizacao',
     ];
 
-    const update = () => {
-      setScrolled(window.scrollY > 40);
+    const sections = ids
+      .map((id) =>
+        document.getElementById(id),
+      )
+      .filter(Boolean) as HTMLElement[];
 
-      const scrollPosition =
-        window.scrollY +
-        window.innerHeight * 0.35;
+    if (!sections.length) {
+      return;
+    }
 
-      let current = 'top';
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter(
+              (entry) =>
+                entry.isIntersecting,
+            )
+            .sort(
+              (a, b) =>
+                b.intersectionRatio -
+                a.intersectionRatio,
+            );
 
-      for (const id of sections) {
-        if (id === 'top') continue;
+          if (
+            visible[0]?.target?.id
+          ) {
+            setActiveSection(
+              visible[0].target.id,
+            );
+          }
+        },
+        {
+          rootMargin:
+            '-25% 0px -55% 0px',
+          threshold: [
+            0.1,
+            0.25,
+            0.5,
+          ],
+        },
+      );
 
-        const element =
-          document.getElementById(id);
-
-        if (
-          element &&
-          scrollPosition >= element.offsetTop
-        ) {
-          current = id;
-        }
-      }
-
-      setActiveSection(current);
-    };
-
-    update();
-
-    window.addEventListener(
-      'scroll',
-      update,
-      { passive: true }
+    sections.forEach(
+      (section) =>
+        observer.observe(section),
     );
 
     return () =>
-      window.removeEventListener(
-        'scroll',
-        update
-      );
+      observer.disconnect();
   }, []);
 
-  /* -----------------------------------------
-     FECHA MENU AO ESCROLAR
-  ----------------------------------------- */
+  /* -------------------------------------------------------
+     MENU
+  ------------------------------------------------------- */
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen) {
+      return;
+    }
 
-    const closeOnScroll = () => {
-      setMenuOpen(false);
+    const previous =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      'hidden';
+
+    const handleKey = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
     };
 
     window.addEventListener(
-      'scroll',
-      closeOnScroll,
-      { passive: true }
+      'keydown',
+      handleKey,
     );
 
-    return () =>
+    return () => {
+      document.body.style.overflow =
+        previous;
+
       window.removeEventListener(
-        'scroll',
-        closeOnScroll
+        'keydown',
+        handleKey,
       );
+    };
   }, [menuOpen]);
 
-  /* -----------------------------------------
-     SWIPE MODALITIES
-  ----------------------------------------- */
+  /* -------------------------------------------------------
+     DATA
+  ------------------------------------------------------- */
 
-  const modalityStartX =
+  const modalities =
+    safeArray<Modality>(
+      gym.modalities,
+    );
+
+  const plans = safeArray<any>(
+    gym.plans,
+  );
+
+  const testimonials =
+    safeArray<any>(
+      gym.testimonials,
+    );
+
+  const fallbackModalities: Modality[] =
+    [
+      {
+        number: '01',
+        name: 'Musculação',
+        description:
+          'Treino de força com acompanhamento próximo.',
+        image:
+          gym.images.training,
+      },
+      {
+        number: '02',
+        name: 'Funcional',
+        description:
+          'Movimento, condicionamento e performance.',
+        image:
+          gym.images.interior,
+      },
+      {
+        number: '03',
+        name: 'Boxe',
+        description:
+          'Técnica, intensidade e condicionamento.',
+        image:
+          gym.images.boxing,
+      },
+    ];
+
+  const visibleModalities =
+    modalities.length > 0
+      ? modalities
+      : fallbackModalities;
+
+  const activeModalityData =
+    visibleModalities[
+      Math.min(
+        activeModality,
+        visibleModalities.length - 1,
+      )
+    ];
+
+  const fallbackPlans = [
+    {
+      name: 'Essencial',
+      price: 'R$ 149',
+      period: '/mês',
+      description:
+        'Para começar a criar consistência.',
+      features: [
+        'Acesso à musculação',
+        'Área funcional',
+        'Avaliação inicial',
+      ],
+    },
+    {
+      name: 'Performance',
+      price: 'R$ 199',
+      period: '/mês',
+      description:
+        'Para quem quer evoluir com mais estrutura.',
+      featured: true,
+      features: [
+        'Acesso completo',
+        'Avaliação periódica',
+        'Orientação de treino',
+      ],
+    },
+    {
+      name: 'Premium',
+      price: 'R$ 269',
+      period: '/mês',
+      description:
+        'Uma experiência completa de treinamento.',
+      features: [
+        'Acesso completo',
+        'Acompanhamento',
+        'Benefícios exclusivos',
+      ],
+    },
+  ];
+
+  const visiblePlans =
+    plans.length > 0
+      ? plans
+      : fallbackPlans;
+
+  const fallbackTestimonials = [
+    {
+      name: 'Marina',
+      role: 'Aluna',
+      text:
+        'Um espaço em que treinar realmente virou parte da minha rotina.',
+    },
+    {
+      name: 'Lucas',
+      role: 'Aluno',
+      text:
+        'A estrutura e o ambiente fizeram muita diferença para eu voltar a treinar.',
+    },
+    {
+      name: 'Ana',
+      role: 'Aluna',
+      text:
+        'O atendimento é próximo e a experiência é muito diferente de uma academia comum.',
+    },
+  ];
+
+  const visibleTestimonials =
+    testimonials.length > 0
+      ? testimonials
+      : fallbackTestimonials;
+
+  const faqs = [
+    [
+      'Preciso já saber treinar?',
+      'Não. A Áurea foi pensada também para quem está começando ou voltando depois de um período parado.',
+    ],
+    [
+      'Posso fazer uma aula antes de contratar?',
+      'Sim. Você pode conhecer o espaço e entender se a experiência faz sentido para você antes de decidir.',
+    ],
+    [
+      'A academia fica aberta em quais horários?',
+      'O horário pode variar conforme o dia. Entre em contato pelo WhatsApp para confirmar o funcionamento e encontrar o melhor momento.',
+    ],
+    [
+      'Preciso levar alguma coisa para a primeira aula?',
+      'Venha com roupa confortável, tênis adequado e disposição para começar. O restante a gente explica no espaço.',
+    ],
+  ];
+
+  /* -------------------------------------------------------
+     MODALITY SWIPE
+  ------------------------------------------------------- */
+
+  const modalityTouchStart =
     useRef<number | null>(null);
 
-  const handleModalityTouchStart = (
-    event: React.TouchEvent
+  const changeModality = (
+    direction: number,
   ) => {
-    modalityStartX.current =
-      event.touches[0].clientX;
+    setActiveModality(
+      (current) => {
+        const next =
+          current + direction;
+
+        if (next < 0) {
+          return (
+            visibleModalities.length - 1
+          );
+        }
+
+        if (
+          next >=
+          visibleModalities.length
+        ) {
+          return 0;
+        }
+
+        return next;
+      },
+    );
   };
 
-  const handleModalityTouchEnd = (
-    event: React.TouchEvent
+  /* -------------------------------------------------------
+     TESTIMONIAL
+  ------------------------------------------------------- */
+
+  const changeTestimonial = (
+    direction: number,
   ) => {
-    if (modalityStartX.current === null) {
-      return;
-    }
+    setActiveTestimonial(
+      (current) => {
+        const next =
+          current + direction;
 
-    const endX =
-      event.changedTouches[0].clientX;
+        if (next < 0) {
+          return (
+            visibleTestimonials.length - 1
+          );
+        }
 
-    const distance =
-      endX - modalityStartX.current;
+        if (
+          next >=
+          visibleTestimonials.length
+        ) {
+          return 0;
+        }
 
-    if (Math.abs(distance) < 50) {
-      modalityStartX.current = null;
-      return;
-    }
-
-    const currentIndex =
-      gym.modalities.findIndex(
-        (item) =>
-          item.name ===
-          activeModality.name
-      );
-
-    if (distance < 0) {
-      const next =
-        (currentIndex + 1) %
-        gym.modalities.length;
-
-      setActiveModality(
-        gym.modalities[next]
-      );
-    } else {
-      const previous =
-        (currentIndex -
-          1 +
-          gym.modalities.length) %
-        gym.modalities.length;
-
-      setActiveModality(
-        gym.modalities[previous]
-      );
-    }
-
-    modalityStartX.current = null;
+        return next;
+      },
+    );
   };
+
+  const closeMenu = () =>
+    setMenuOpen(false);
+
+  const mapsUrl =
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${gym.city}, Pinheiros, São Paulo - SP`,
+    )}`;
 
   return (
     <div className="site-shell">
-      {/* =================================================
+
+      {/* =====================================================
+          READING PROGRESS
+      ===================================================== */}
+
+      <motion.div
+        className="reading-progress"
+        style={{
+          scaleX: progress,
+          transformOrigin: '0% 50%',
+        }}
+      />
+
+      {/* =====================================================
           HEADER
-      ================================================= */}
+      ===================================================== */}
 
       <header
         className={`site-header ${
           scrolled ? 'scrolled' : ''
-        } ${
-          menuOpen ? 'menu-open' : ''
         }`}
       >
         <a
+          href="#inicio"
           className="wordmark"
-          href="#top"
-          aria-label="Áurea início"
-          onClick={() =>
-            setMenuOpen(false)
-          }
+          onClick={closeMenu}
         >
-          <span className="mark">A</span>
+          <span className="mark">
+            A
+          </span>
+
           <span>Áurea</span>
         </a>
 
-        <nav
-          className="desktop-nav"
-          aria-label="Navegação principal"
-        >
+        <nav className="desktop-nav">
           {navLinks.map(
             ([label, href]) => (
               <a
-                key={href}
                 href={href}
+                key={href}
+                className={
+                  activeSection ===
+                  href.slice(1)
+                    ? 'active'
+                    : ''
+                }
               >
                 {label}
               </a>
-            )
+            ),
           )}
         </nav>
 
         <div className="header-actions">
-          <button
+          <span className="header-city">
+            SP / PINHEIROS
+          </span>
+
+          <WhatsAppButton
+            message="Olá! Quero conhecer a Áurea e agendar uma aula."
+          >
+            Começar
+          </WhatsAppButton>
+
+          <motion.button
+            type="button"
             className="menu-toggle"
             onClick={() =>
               setMenuOpen(
-                (open) => !open
+                (value) => !value,
               )
             }
             aria-label={
@@ -870,788 +1258,1272 @@ function App() {
                 : 'Abrir menu'
             }
             aria-expanded={menuOpen}
-            type="button"
+            whileTap={{
+              scale: 0.9,
+            }}
           >
             {menuOpen ? (
-              <X size={20} />
+              <X size={18} />
             ) : (
-              <Menu size={20} />
+              <Menu size={18} />
             )}
-          </button>
-
-          <WhatsAppButton label="Começar" />
+          </motion.button>
         </div>
 
         <AnimatePresence>
           {menuOpen && (
-            <motion.div
+            <motion.nav
               className="mobile-nav"
               initial={{
-                opacity: 0,
                 height: 0,
+                opacity: 0,
               }}
               animate={{
-                opacity: 1,
                 height: 'auto',
+                opacity: 1,
               }}
               exit={{
-                opacity: 0,
                 height: 0,
+                opacity: 0,
               }}
               transition={{
-                duration: 0.4,
+                duration: reduced
+                  ? 0.01
+                  : 0.55,
                 ease,
               }}
             >
-              <div className="mobile-nav-header">
-                <span>Navegação</span>
-                <span>ÁUREA · 01</span>
-              </div>
-
               {navLinks.map(
-                ([label, href], index) => (
-                  <a
+                (
+                  [label, href],
+                  index,
+                ) => (
+                  <motion.a
                     key={href}
                     href={href}
-                    onClick={() =>
-                      setMenuOpen(false)
-                    }
+                    onClick={closeMenu}
+                    initial={{
+                      opacity: 0,
+                      x: reduced
+                        ? 0
+                        : -30,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                    }}
+                    transition={{
+                      delay: reduced
+                        ? 0
+                        : index * 0.06,
+                      duration: reduced
+                        ? 0.01
+                        : 0.5,
+                      ease,
+                    }}
                   >
-                    <span>
-                      0{index + 1}
-                    </span>
+                    {label}
 
-                    <strong>
-                      {label}
-                    </strong>
-
-                    <ChevronRight
-                      size={22}
-                    />
-                  </a>
-                )
+                    <ArrowRight size={18} />
+                  </motion.a>
+                ),
               )}
 
-              <div className="mobile-menu-cta">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setShowBooking(true);
-                  }}
-                >
-                  <CalendarDays
-                    size={19}
-                  />
-                  Agendar aula experimental
-                </button>
-              </div>
-            </motion.div>
+              <motion.a
+                href="#agendar"
+                onClick={closeMenu}
+                initial={{
+                  opacity: 0,
+                  x: reduced
+                    ? 0
+                    : -30,
+                }}
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                }}
+                transition={{
+                  delay: reduced
+                    ? 0
+                    : 0.25,
+                  duration: reduced
+                    ? 0.01
+                    : 0.5,
+                  ease,
+                }}
+              >
+                Começar
+
+                <ArrowRight size={18} />
+              </motion.a>
+            </motion.nav>
           )}
         </AnimatePresence>
       </header>
 
-      {/* =================================================
-          MAIN
-      ================================================= */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
-      <main id="top">
-        {/* HERO */}
-
-        <section
-          className="hero"
+      <section
+        ref={
+          anim.heroRef as Ref<HTMLElement>
+        }
+        id="inicio"
+        className="hero"
+      >
+        <motion.div
           ref={
-            anim.heroRef as React.RefObject<HTMLElement>
+            anim.photoWrapRef as Ref<HTMLDivElement>
           }
+          className="hero-photo-wrap"
+          style={{
+            scale: heroImageScale,
+            y: heroImageY,
+          }}
         >
-          <div
-            className="hero-photo-wrap"
+          <img
             ref={
-              anim.photoWrapRef as React.RefObject<HTMLDivElement>
+              anim.photoRef as Ref<HTMLImageElement>
             }
-          >
-            <img
-              ref={
-                anim.photoRef as React.RefObject<HTMLImageElement>
-              }
-              src={gym.images.hero}
-              alt="Pessoa correndo com sensação de movimento"
-              className="hero-photo"
-            />
-          </div>
-
-          <div
-            className="hero-overlay"
-            ref={
-              anim.overlayRef as React.RefObject<HTMLDivElement>
-            }
+            className="hero-photo"
+            src={gym.images.hero}
+            alt="Interior da Áurea"
+            fetchPriority="high"
           />
+        </motion.div>
 
-          <div
-            className="hero-topline"
-            ref={
-              anim.toplineRef as React.RefObject<HTMLDivElement>
-            }
-          >
-            <span>Desde 2018</span>
-            <span className="hero-line" />
-            <span>Pinheiros, São Paulo</span>
-          </div>
-
-          <div className="hero-content">
-            <p
-              className="eyebrow light"
-              ref={
-                anim.eyebrowRef as React.RefObject<HTMLParagraphElement>
-              }
-            >
-              Treino de verdade
-            </p>
-
-            <h1>
-              <span
-                className="title-line"
-                ref={anim.addTitleRef}
-              >
-                Mova
-              </span>
-
-              <span
-                className="title-line"
-                ref={anim.addTitleRef}
-              >
-                <em>o seu</em>
-              </span>
-
-              <span
-                className="title-line"
-                ref={anim.addTitleRef}
-              >
-                mundo
-                <span className="accent-dot">
-                  .
-                </span>
-              </span>
-            </h1>
-
-            <div
-              className="hero-bottom"
-              ref={
-                anim.heroBottomRef as React.RefObject<HTMLDivElement>
-              }
-            >
-              <p
-                ref={
-                  anim.heroBottomPRef as React.RefObject<HTMLParagraphElement>
-                }
-              >
-                Treino bem feito, espaço bom
-                e acompanhamento de perto.
-              </p>
-
-              <div
-                ref={
-                  anim.heroButtonRef as React.RefObject<HTMLDivElement>
-                }
-              >
-                <WhatsAppButton label="Agendar aula" />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="hero-side-note"
-            ref={
-              anim.sideNoteRef as React.RefObject<HTMLDivElement>
-            }
-          >
-            <span>01</span>
-            <span className="vertical-line" />
-            <span>Role para ver</span>
-          </div>
-
-          <div
-            className={`hero-floating-card ${
-              status.open ? '' : 'is-closed'
-            }`}
-            ref={
-              anim.floatingCardRef as React.RefObject<HTMLDivElement>
-            }
-          >
-            <span className="card-label">
-              {status.open
-                ? 'Aberta agora'
-                : 'Fechada agora'}
-            </span>
-
-            <strong>
-              {status.time}
-            </strong>
-
-            <span>
-              {status.note}
-            </span>
-
-            <div className="pulse-line">
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-              <i />
-            </div>
-          </div>
-
-          <div
-            className="hero-scroll"
-            ref={
-              anim.scrollRef as React.RefObject<HTMLDivElement>
-            }
-          >
-            <ChevronDown size={16} />
-            <span>Role para ver mais</span>
-          </div>
-
-          {/* CTA MOBILE DO HERO */}
-
-          <button
-            type="button"
-            className="hero-mobile-status"
-            onClick={() =>
-              setShowBooking(true)
-            }
-          >
-            <span
-              className={
-                status.open
-                  ? 'status-dot open'
-                  : 'status-dot'
-              }
-            />
-
-            <span>
-              {status.open
-                ? 'Aberta agora'
-                : 'Fechada agora'}
-            </span>
-
-            <strong>
-              {status.open
-                ? 'Agendar'
-                : 'Ver horários'}
-            </strong>
-          </button>
-        </section>
-
-        {/* MANIFESTO */}
-
-        <section
-          className="manifesto section-pad"
+        <motion.div
           ref={
-            anim.nextSectionRef as React.RefObject<HTMLElement>
+            anim.overlayRef as Ref<HTMLDivElement>
           }
-        >
-          <Reveal className="manifesto-head">
-            <p className="eyebrow">
-              A proposta
-            </p>
-          </Reveal>
+          className="hero-overlay"
+        />
 
-          <Reveal
-            delay={0.1}
-            className="manifesto-title"
+        <div
+          ref={
+            anim.toplineRef as Ref<HTMLDivElement>
+          }
+          className="hero-topline"
+        >
+          <span>
+            ÁUREA TRAINING CLUB
+          </span>
+
+          <span className="hero-line" />
+
+          <span>
+            PINHEIROS · SP
+          </span>
+        </div>
+
+        <motion.div
+          ref={
+            anim.addTitleRef as Ref<HTMLDivElement>
+          }
+          className="hero-content"
+          style={{
+            y: heroContentY,
+            opacity: heroContentOpacity,
+          }}
+        >
+          <motion.span
+            ref={
+              anim.eyebrowRef as Ref<HTMLSpanElement>
+            }
+            className="eyebrow light"
+            initial={{
+              opacity: 0,
+              y: reduced ? 0 : 25,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: reduced
+                ? 0.01
+                : 0.8,
+              delay: reduced
+                ? 0
+                : 0.15,
+              ease,
+            }}
           >
+            Treinamento · Presença ·
+            Consistência
+          </motion.span>
+
+          <h1>
+            {/* CORREÇÃO:
+                Removidos titleLineOneRef e titleLineTwoRef.
+                Essas propriedades NÃO existem no hook. */}
+
+            <motion.span
+              className="title-line"
+              initial={{
+                y: reduced
+                  ? 0
+                  : '110%',
+              }}
+              animate={{
+                y: 0,
+              }}
+              transition={{
+                duration: reduced
+                  ? 0.01
+                  : 1.1,
+                delay: reduced
+                  ? 0
+                  : 0.25,
+                ease,
+              }}
+            >
+              Mova
+            </motion.span>
+
+            <motion.span
+              className="title-line"
+              initial={{
+                y: reduced
+                  ? 0
+                  : '110%',
+              }}
+              animate={{
+                y: 0,
+              }}
+              transition={{
+                duration: reduced
+                  ? 0.01
+                  : 1.1,
+                delay: reduced
+                  ? 0
+                  : 0.34,
+                ease,
+              }}
+            >
+              o seu
+            </motion.span>
+
+            <motion.span
+              className="title-line"
+              initial={{
+                y: reduced
+                  ? 0
+                  : '110%',
+              }}
+              animate={{
+                y: 0,
+              }}
+              transition={{
+                duration: reduced
+                  ? 0.01
+                  : 1.15,
+                delay: reduced
+                  ? 0
+                  : 0.43,
+                ease,
+              }}
+            >
+              mundo.
+            </motion.span>
+          </h1>
+
+          <motion.div
+            ref={
+              anim.heroBottomRef as Ref<HTMLDivElement>
+            }
+            className="hero-bottom"
+            initial={{
+              opacity: 0,
+              y: reduced ? 0 : 35,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: reduced
+                ? 0.01
+                : 0.8,
+              delay: reduced
+                ? 0
+                : 0.7,
+              ease,
+            }}
+          >
+            <motion.p
+              ref={
+                anim.heroBottomPRef as Ref<HTMLParagraphElement>
+              }
+            >
+              Uma academia para quem quer
+              treinar com intenção,
+              estrutura e constância.
+            </motion.p>
+
+            <WhatsAppButton
+              message="Olá! Quero conhecer a Áurea e agendar uma aula."
+            >
+              Agendar aula
+            </WhatsAppButton>
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          ref={
+            anim.sideNoteRef as Ref<HTMLDivElement>
+          }
+          className="hero-side-note"
+          style={{
+            opacity: heroContentOpacity,
+          }}
+        >
+          <span>
+            Treine com presença
+          </span>
+
+          <span className="vertical-line" />
+
+          <span>
+            Áurea · 01
+          </span>
+        </motion.div>
+
+        <motion.div
+          ref={
+            anim.floatingCardRef as Ref<HTMLDivElement>
+          }
+          className="hero-floating-card"
+          initial={{
+            opacity: 0,
+            x: reduced ? 0 : 60,
+            y: reduced ? 0 : -10,
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+            y: -30,
+          }}
+          transition={{
+            duration: reduced
+              ? 0.01
+              : 0.9,
+            delay: reduced
+              ? 0
+              : 0.8,
+            ease,
+          }}
+          whileHover={{
+            y: -40,
+          }}
+        >
+          <span className="card-label">
+            Agora
+          </span>
+
+          <strong>
+            {status.open
+              ? 'Aberta'
+              : 'Fechada'}
+          </strong>
+
+          <span>
+            {status.open
+              ? 'Pronta para receber você'
+              : 'Consulte nossos horários'}
+          </span>
+
+          <div className="pulse-line">
+            {Array.from({
+              length: 7,
+            }).map(
+              (_, index) => (
+                <i key={index} />
+              ),
+            )}
+          </div>
+        </motion.div>
+
+        <motion.div
+          ref={
+            anim.scrollRef as Ref<HTMLDivElement>
+          }
+          className="hero-scroll"
+          animate={
+            reduced
+              ? {}
+              : {
+                  y: [0, 8, 0],
+                  opacity: [
+                    0.4,
+                    0.9,
+                    0.4,
+                  ],
+                }
+          }
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        >
+          <span>
+            Scroll
+          </span>
+
+          <ArrowDownRight size={14} />
+        </motion.div>
+      </section>
+
+      {/* =====================================================
+          MANIFESTO
+      ===================================================== */}
+
+      <section
+        id="experiencia"
+        ref={
+          anim.nextSectionRef as Ref<HTMLElement>
+        }
+        className="manifesto section-pad"
+      >
+        <div className="manifesto-head">
+          <span className="section-index">
+            01 / A proposta
+          </span>
+        </div>
+
+        <div className="manifesto-title">
+          <Reveal>
             <h2>
               Seu corpo
               <br />
-              <span>pede</span>
-              <br />
-              presença
-              <span className="accent-dot">
-                .
-              </span>
+              pede <em>presença.</em>
             </h2>
-
-            <div className="manifesto-aside">
-              <p>
-                Não é sobre fazer mais.
-                É sobre fazer melhor. Na
-                Áurea, cada detalhe foi
-                pensado para transformar
-                movimento em uma prática
-                possível, prazerosa e
-                consistente.
-              </p>
-
-              <a
-                className="text-link"
-                href="#experiencia"
-              >
-                Conheça nossa abordagem
-                <ChevronRight size={18} />
-              </a>
-            </div>
-          </Reveal>
-
-          <div className="stat-row">
-            {gym.stats.map(
-              (stat, index) => (
-                <Reveal
-                  key={stat.label}
-                  delay={index * 0.1}
-                >
-                  <Counter {...stat} />
-                </Reveal>
-              )
-            )}
-          </div>
-        </section>
-
-        {/* EXPERIÊNCIA */}
-
-        <section
-          className="intro-grid section-pad"
-          id="experiencia"
-        >
-          <Reveal className="intro-copy">
-            <p className="eyebrow">
-              O espaço
-            </p>
-
-            <h2>
-              Um lugar que
-              <br />
-              <span>te coloca</span>
-              <br />
-              em movimento.
-            </h2>
-
-            <p className="body-copy">
-              Luz natural, equipamentos
-              de alta performance e uma
-              equipe que conhece seu
-              nome. Tudo para você
-              treinar com foco — e sair
-              se sentindo mais presente
-              do que entrou.
-            </p>
-
-            <a
-              className="round-link"
-              href="#estrutura"
-              aria-label="Ver estrutura"
-            >
-              <ChevronDown size={22} />
-            </a>
-          </Reveal>
-
-          <Reveal
-            delay={0.15}
-            className="intro-image image-frame"
-          >
-            <img
-              src={gym.images.interior}
-              alt="Interior amplo da academia Áurea"
-              loading="lazy"
-            />
-
-            <span className="image-caption">
-              Área de treino, Pinheiros
-            </span>
-          </Reveal>
-        </section>
-
-        {/* INICIANTES */}
-
-        <section
-          className="beginner section-pad"
-          id="estrutura"
-        >
-          <Reveal className="beginner-image image-frame">
-            <img
-              src={gym.images.training}
-              alt="Mulher treinando com halteres"
-              loading="lazy"
-            />
-
-            <span className="image-caption">
-              Acompanhamento desde o
-              primeiro dia
-            </span>
           </Reveal>
 
           <Reveal
             delay={0.12}
-            className="beginner-copy"
+            direction="right"
+            className="manifesto-aside"
           >
-            <p className="eyebrow">
-              Sem pressão
+            <p>
+              A Áurea foi criada para tirar o
+              treino do automático. Um espaço em
+              que ambiente, método e movimento
+              trabalham juntos.
             </p>
 
+            <a
+              href="#modalidades"
+              className="text-link"
+            >
+              Explorar modalidades
+              <ArrowRight size={15} />
+            </a>
+          </Reveal>
+        </div>
+
+        <div className="stat-row">
+          {[
+            ['10+', 'anos de experiência'],
+            ['4.9', 'avaliação média'],
+            ['286+', 'avaliações'],
+          ].map(
+            ([value, label], index) => (
+              <Reveal
+                key={label}
+                delay={index * 0.1}
+                amount={0.6}
+              >
+                <motion.div
+                  className="stat"
+                  whileHover={{
+                    y: -8,
+                  }}
+                  transition={{
+                    duration: 0.35,
+                    ease,
+                  }}
+                >
+                  <strong>
+                    <Counter
+                      value={value}
+                    />
+                  </strong>
+
+                  <span>
+                    {label}
+                  </span>
+                </motion.div>
+              </Reveal>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* =====================================================
+          EXPERIENCE
+      ===================================================== */}
+
+      <section
+        className="intro-grid section-pad"
+        style={{
+          background:
+            'var(--bg-alt)',
+        }}
+      >
+        <Reveal direction="left">
+          <div className="intro-copy">
+            <span className="eyebrow">
+              02 / O espaço
+            </span>
+
             <h2>
-              Você não precisa saber
-              treinar para{' '}
-              <span>começar.</span>
+              Um lugar que te coloca em{' '}
+              <em>movimento.</em>
             </h2>
 
             <p className="body-copy">
-              Seu primeiro treino tem um
-              roteiro simples: entender
-              você, ajustar o movimento e
-              encontrar uma intensidade
-              que faça sentido. O resto é
-              construção.
+              Equipamentos, circulação,
+              iluminação e atmosfera pensados
+              para que você queira permanecer,
+              treinar e voltar.
             </p>
 
-            <ul className="check-list">
-              <li>
-                <Check size={20} />
-                Avaliação e objetivo
-              </li>
-
-              <li>
-                <Check size={20} />
-                Professor por perto
-              </li>
-
-              <li>
-                <Check size={20} />
-                Evolução acompanhada
-              </li>
-            </ul>
-
-            <button
-              className="text-link button-reset"
-              onClick={() =>
-                setShowBooking(true)
-              }
-              type="button"
+            <a
+              href="#agendar"
+              className="text-link"
             >
-              Quero conhecer a academia
-              <ChevronRight size={18} />
-            </button>
-          </Reveal>
-        </section>
+              Conhecer a Áurea
+              <ArrowRight size={15} />
+            </a>
+          </div>
+        </Reveal>
 
-        {/* MODALIDADES */}
+        <CinematicImage
+          className="image-frame intro-image"
+          src={
+            gym.images.interior ??
+            gym.images.hero
+          }
+          alt="Espaço interno da Áurea"
+          caption="O espaço · Pinheiros"
+          direction="right"
+        />
+      </section>
 
-        <section
-          className="modalities section-pad"
-          id="modalidades"
+      {/* =====================================================
+          BEGINNER
+      ===================================================== */}
+
+      <section className="beginner section-pad">
+        <div className="beginner-word">
+          COMEÇO
+        </div>
+
+        <CinematicImage
+          className="image-frame beginner-image"
+          src={
+            gym.images.training ??
+            gym.images.hero
+          }
+          alt="Pessoa treinando na Áurea"
+          caption="Sem pressão"
+          direction="left"
+        />
+
+        <Reveal
+          direction="right"
+          className="beginner-copy"
         >
-          <Reveal className="section-heading">
-            <div>
-              <p className="eyebrow">
-                Práticas
-              </p>
+          <span className="eyebrow">
+            03 / Sem pressão
+          </span>
 
-              <h2>
-                Escolha seu
-                <br />
-                <span>ritmo.</span>
-              </h2>
-            </div>
+          <h2>
+            Você não precisa saber treinar
+            para <em>começar.</em>
+          </h2>
 
-            <p className="heading-note">
-              Deslize, escolha
-              <br />
-              e comece a mover.
-            </p>
-          </Reveal>
+          <p className="body-copy">
+            O ponto de partida não precisa ser
+            perfeito. Precisa apenas existir.
+          </p>
 
-          <div
-            className="modality-stage"
-            onTouchStart={
-              handleModalityTouchStart
-            }
-            onTouchEnd={
-              handleModalityTouchEnd
-            }
-          >
-            <div className="modality-visual image-frame">
-              <AnimatePresence mode="wait">
-                <motion.img
-                  key={
-                    activeModality.name
-                  }
-                  src={
-                    activeModality.image
-                  }
-                  alt={
-                    activeModality.name
-                  }
+          <ul className="check-list">
+            {[
+              'Orientação para começar',
+              'Ambiente sem julgamento',
+              'Treino adaptado ao seu momento',
+            ].map(
+              (item, index) => (
+                <motion.li
+                  key={item}
                   initial={{
                     opacity: 0,
-                    scale: 1.06,
+                    x: reduced ? 0 : -20,
                   }}
-                  animate={{
+                  whileInView={{
                     opacity: 1,
-                    scale: 1,
+                    x: 0,
                   }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0.98,
+                  viewport={{
+                    once: true,
+                    amount: 0.6,
                   }}
                   transition={{
-                    duration: 0.55,
+                    delay: reduced
+                      ? 0
+                      : index * 0.09,
+                    duration: reduced
+                      ? 0.01
+                      : 0.55,
                     ease,
                   }}
-                />
-              </AnimatePresence>
+                >
+                  <Check size={16} />
+                  {item}
+                </motion.li>
+              ),
+            )}
+          </ul>
 
-              <span className="image-caption">
-                Áurea ·{' '}
-                {activeModality.name}
+          <WhatsAppButton
+            message="Olá! Estou começando/voltando a treinar e gostaria de conhecer a Áurea."
+          >
+            Quero começar
+          </WhatsAppButton>
+        </Reveal>
+      </section>
+
+      {/* =====================================================
+          MODALIDADES
+      ===================================================== */}
+
+      <section
+        id="modalidades"
+        className="section-pad"
+      >
+        <div className="section-heading">
+          <Reveal>
+            <div>
+              <span className="eyebrow">
+                04 / Práticas
               </span>
 
-              <div className="modality-mobile-hint">
-                <ChevronLeft size={15} />
-                Deslize
-                <ChevronRight size={15} />
-              </div>
+              <h2>
+                Escolha seu{' '}
+                <em>ritmo.</em>
+              </h2>
             </div>
+          </Reveal>
 
-            <div className="modality-list">
-              {gym.modalities.map(
-                (modality) => (
-                  <button
-                    key={modality.name}
+          <Reveal
+            direction="right"
+            delay={0.12}
+          >
+            <p className="heading-note">
+              Diferentes formas de treinar.
+              <br />
+              A mesma intenção: evoluir.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="modality-stage">
+          <motion.div
+            className="image-frame modality-visual"
+            onTouchStart={(event) => {
+              modalityTouchStart.current =
+                event.touches[0]
+                  ?.clientX ?? null;
+            }}
+            onTouchEnd={(event) => {
+              if (
+                modalityTouchStart.current ===
+                null
+              ) {
+                return;
+              }
+
+              const end =
+                event.changedTouches[0]
+                  ?.clientX ??
+                modalityTouchStart.current;
+
+              const delta =
+                end -
+                modalityTouchStart.current;
+
+              if (
+                Math.abs(delta) > 50
+              ) {
+                changeModality(
+                  delta > 0 ? -1 : 1,
+                );
+              }
+
+              modalityTouchStart.current =
+                null;
+            }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={
+                  (activeModalityData as any)
+                    ?.id ??
+                  activeModality
+                }
+                src={
+                  (activeModalityData as any)
+                    ?.image ??
+                  gym.images.hero
+                }
+                alt={
+                  (activeModalityData as any)
+                    ?.name ??
+                  'Modalidade'
+                }
+                initial={{
+                  opacity: 0,
+                  scale: reduced
+                    ? 1
+                    : 1.14,
+                  x: reduced
+                    ? 0
+                    : 45,
+                  clipPath: reduced
+                    ? 'inset(0)'
+                    : 'inset(0 0 0 12%)',
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  x: 0,
+                  clipPath: 'inset(0)',
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: reduced
+                    ? 1
+                    : 1.06,
+                  x: reduced
+                    ? 0
+                    : -35,
+                }}
+                transition={{
+                  duration: reduced
+                    ? 0.01
+                    : 0.75,
+                  ease,
+                }}
+              />
+            </AnimatePresence>
+
+            <motion.div
+              className="image-caption"
+              key={
+                (activeModalityData as any)
+                  ?.name ??
+                activeModality
+              }
+              initial={{
+                opacity: 0,
+                y: reduced ? 0 : 15,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                delay: reduced
+                  ? 0
+                  : 0.25,
+                duration: reduced
+                  ? 0.01
+                  : 0.45,
+                ease,
+              }}
+            >
+              {(activeModalityData as any)
+                ?.name ??
+                'Treino'}
+            </motion.div>
+          </motion.div>
+
+          <div className="modality-list">
+            {visibleModalities.map(
+              (
+                modality: any,
+                index,
+              ) => {
+                const active =
+                  activeModality ===
+                  index;
+
+                return (
+                  <motion.button
+                    type="button"
+                    key={
+                      modality.id ??
+                      modality.name ??
+                      index
+                    }
                     className={`modality-item ${
-                      activeModality.name ===
-                      modality.name
+                      active
                         ? 'active'
                         : ''
                     }`}
-                    onMouseEnter={() =>
-                      setActiveModality(
-                        modality
-                      )
-                    }
-                    onFocus={() =>
-                      setActiveModality(
-                        modality
-                      )
-                    }
                     onClick={() =>
                       setActiveModality(
-                        modality
+                        index,
                       )
                     }
-                    type="button"
+                    initial={{
+                      opacity: 0,
+                      x: reduced
+                        ? 0
+                        : 45,
+                    }}
+                    whileInView={{
+                      opacity: 1,
+                      x: 0,
+                    }}
+                    viewport={{
+                      once: true,
+                      amount: 0.5,
+                    }}
+                    transition={{
+                      delay: reduced
+                        ? 0
+                        : index * 0.08,
+                      duration: reduced
+                        ? 0.01
+                        : 0.65,
+                      ease,
+                    }}
+                    whileHover={{
+                      x: 10,
+                    }}
+                    whileTap={{
+                      scale: 0.985,
+                    }}
                   >
                     <span>
-                      {modality.number}
+                      {String(
+                        index + 1,
+                      ).padStart(2, '0')}
                     </span>
 
                     <strong>
-                      {modality.name}
+                      {modality.name ??
+                        modality.title ??
+                        `Modalidade ${
+                          index + 1
+                        }`}
                     </strong>
 
-                    <ChevronRight
-                      size={24}
-                    />
-                  </button>
-                )
-              )}
+                    {active ? (
+                      <ChevronRight
+                        size={20}
+                      />
+                    ) : (
+                      <ArrowDownRight
+                        size={19}
+                      />
+                    )}
 
-              <AnimatePresence mode="wait">
-                <motion.p
+                    <AnimatePresence>
+                      {active && (
+                        <motion.div
+                          className="modality-description"
+                          initial={{
+                            opacity: 0,
+                            height: 0,
+                            y: -10,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            height: 'auto',
+                            y: 0,
+                          }}
+                          exit={{
+                            opacity: 0,
+                            height: 0,
+                            y: -10,
+                          }}
+                          transition={{
+                            duration: reduced
+                              ? 0.01
+                              : 0.5,
+                            ease,
+                          }}
+                        >
+                          {modality.description ??
+                            modality.text ??
+                            'Uma experiência de treino pensada para diferentes objetivos.'}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                );
+              },
+            )}
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.5rem',
+                marginTop: '1rem',
+              }}
+            >
+              <motion.button
+                type="button"
+                className="round-link"
+                onClick={() =>
+                  changeModality(-1)
+                }
+                aria-label="Modalidade anterior"
+                whileHover={{
+                  scale: 1.08,
+                }}
+                whileTap={{
+                  scale: 0.9,
+                }}
+              >
+                <ChevronLeft size={18} />
+              </motion.button>
+
+              <motion.button
+                type="button"
+                className="round-link"
+                onClick={() =>
+                  changeModality(1)
+                }
+                aria-label="Próxima modalidade"
+                whileHover={{
+                  scale: 1.08,
+                }}
+                whileTap={{
+                  scale: 0.9,
+                }}
+              >
+                <ChevronRight size={18} />
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          QUOTE
+      ===================================================== */}
+
+      <QuoteScene>
+        <span className="quote-mark">
+          “
+        </span>
+
+        <blockquote>
+          Consistência é uma forma de{' '}
+          <span>cuidado.</span>
+        </blockquote>
+
+        <p>
+          O treino não precisa dominar sua
+          rotina. Precisa encontrar um lugar
+          nela.
+        </p>
+
+        <span className="quote-number">
+          05
+        </span>
+      </QuoteScene>
+
+      {/* =====================================================
+          PLANOS
+      ===================================================== */}
+
+      <section
+        id="planos"
+        className="section-pad"
+      >
+        <div className="plans-layout">
+          <Reveal direction="left">
+            <div className="plans-intro">
+              <span className="eyebrow">
+                05 / Escolha seu plano
+              </span>
+
+              <h2
+                style={{
+                  fontSize:
+                    'clamp(2.75rem, 8vw, 5.5rem)',
+                  margin:
+                    '1rem 0 1.5rem',
+                }}
+              >
+                Comece pelo{' '}
+                <em>agora.</em>
+              </h2>
+
+              <p className="body-copy">
+                Não precisa descobrir o
+                plano perfeito antes de
+                começar. Encontre o que
+                faz sentido para o seu
+                momento.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="plan-list">
+            {visiblePlans.map(
+              (
+                plan: any,
+                index,
+              ) => (
+                <motion.article
                   key={
-                    activeModality.name
+                    plan.id ??
+                    plan.name ??
+                    index
                   }
-                  className="modality-description"
+                  className={`plan ${
+                    plan.featured ||
+                    plan.highlighted
+                      ? 'featured'
+                      : ''
+                  }`}
                   initial={{
                     opacity: 0,
-                    y: 10,
+                    y: reduced ? 0 : 90,
+                    rotateX:
+                      reduced ? 0 : 8,
                   }}
-                  animate={{
+                  whileInView={{
                     opacity: 1,
                     y: 0,
+                    rotateX: 0,
                   }}
-                  exit={{
-                    opacity: 0,
-                    y: -10,
+                  viewport={{
+                    once: true,
+                    amount: 0.2,
                   }}
-                >
-                  {
-                    activeModality.description
+                  transition={{
+                    delay: reduced
+                      ? 0
+                      : index * 0.12,
+                    duration: reduced
+                      ? 0.01
+                      : 0.8,
+                    ease,
+                  }}
+                  whileHover={
+                    reduced
+                      ? undefined
+                      : {
+                          y: -10,
+                          scale: 1.015,
+                        }
                   }
-                </motion.p>
-              </AnimatePresence>
-            </div>
+                >
+                  <div className="plan-top">
+                    <span className="plan-number">
+                      {String(
+                        index + 1,
+                      ).padStart(2, '0')}
+                    </span>
+
+                    {plan.tag && (
+                      <span className="plan-tag">
+                        {plan.tag}
+                      </span>
+                    )}
+
+                    {!plan.tag &&
+                      (plan.featured ||
+                        plan.highlighted) && (
+                        <span className="plan-tag">
+                          Mais escolhido
+                        </span>
+                      )}
+                  </div>
+
+                  <h3>
+                    {plan.name ??
+                      plan.title ??
+                      `Plano ${
+                        index + 1
+                      }`}
+                  </h3>
+
+                  <p className="plan-detail">
+                    {plan.description ??
+                      plan.detail ??
+                      'Para manter sua rotina de treino em movimento.'}
+                  </p>
+
+                  <div className="price">
+                    {plan.price ??
+                      plan.value ??
+                      'Consulte'}
+
+                    {plan.period && (
+                      <small>
+                        {plan.period}
+                      </small>
+                    )}
+                  </div>
+
+                  <ul>
+                    {safeArray<string>(
+                      plan.features ??
+                        plan.benefits,
+                    ).map(
+                      (feature) => (
+                        <li key={feature}>
+                          <Check size={15} />
+                          {feature}
+                        </li>
+                      ),
+                    )}
+
+                    {!safeArray<string>(
+                      plan.features ??
+                        plan.benefits,
+                    ).length && (
+                      <>
+                        <li>
+                          <Check size={15} />
+                          Acesso à estrutura
+                        </li>
+
+                        <li>
+                          <Check size={15} />
+                          Ambiente completo
+                        </li>
+
+                        <li>
+                          <Check size={15} />
+                          Treino com consistência
+                        </li>
+                      </>
+                    )}
+                  </ul>
+
+                  <WhatsAppButton
+                    dark={Boolean(
+                      plan.featured ||
+                        plan.highlighted,
+                    )}
+                    message={`Olá! Quero conhecer o ${
+                      plan.name ??
+                      'plano da Áurea'
+                    }.`}
+                  >
+                    Escolher este plano
+                  </WhatsAppButton>
+                </motion.article>
+              ),
+            )}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* QUOTE */}
+      {/* =====================================================
+          SOCIAL PROOF
+      ===================================================== */}
 
-        <section className="quote-break">
+      <section className="social-proof section-pad">
+        <div className="social-header">
           <Reveal>
-            <blockquote>
-              Consistência é uma forma
-              <br />
-              de <span>cuidado.</span>
-            </blockquote>
-
-            <p>
-              Manifesto Áurea
-            </p>
-          </Reveal>
-        </section>
-
-        {/* PLANOS */}
-
-        <section
-          className="plans section-pad"
-          id="planos"
-        >
-          <Reveal className="section-heading">
             <div>
-              <p className="eyebrow">
-                Escolha seu plano
-              </p>
+              <span className="eyebrow">
+                06 / Quem vive
+              </span>
 
-              <h2>
-                Comece pelo
-                <br />
-                <span>agora.</span>
+              <h2
+                style={{
+                  fontSize:
+                    'clamp(2.5rem, 8vw, 5.5rem)',
+                  marginTop: '1rem',
+                }}
+              >
+                Quem vive a{' '}
+                <em>Áurea.</em>
               </h2>
             </div>
-
-            <p className="heading-note">
-              Sem taxa de adesão.
-              <br />
-              Sem letras miúdas.
-            </p>
           </Reveal>
 
-          <div className="plans-layout">
-            <div className="plans-intro">
-              <p className="body-copy">
-                O plano certo é aquele
-                que cabe na sua rotina.
-                Todos incluem acesso à
-                nossa estrutura e uma
-                equipe pronta para fazer
-                você avançar.
-              </p>
-
-              <a
-                className="text-link"
-                href="#faq"
-              >
-                Dúvidas frequentes
-                <ChevronRight size={18} />
-              </a>
-            </div>
-
-            <div className="plan-list">
-              {gym.plans.map(
-                (plan, index) => (
-                  <Reveal
-                    key={plan.name}
-                    delay={index * 0.08}
-                  >
-                    <article
-                      className={`plan ${
-                        plan.featured
-                          ? 'featured'
-                          : ''
-                      }`}
-                    >
-                      <div className="plan-top">
-                        <span className="plan-number">
-                          0{index + 1}
-                        </span>
-
-                        {plan.featured && (
-                          <span className="plan-tag">
-                            Mais escolhido
-                          </span>
-                        )}
-                      </div>
-
-                      <h3>
-                        {plan.name}
-                      </h3>
-
-                      <p className="plan-detail">
-                        {plan.detail}
-                      </p>
-
-                      <div className="price">
-                        {plan.price}
-                        <small>
-                          {plan.period}
-                        </small>
-                      </div>
-
-                      <ul>
-                        {plan.features.map(
-                          (feature) => (
-                            <li
-                              key={feature}
-                            >
-                              <Check
-                                size={16}
-                              />
-                              {feature}
-                            </li>
-                          )
-                        )}
-                      </ul>
-
-                      <WhatsAppButton
-                        label="Quero começar"
-                        dark={
-                          plan.featured
-                        }
-                        message={`Olá! Quero saber mais sobre o plano ${plan.name} da Áurea.`}
-                      />
-                    </article>
-                  </Reveal>
-                )
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* DEPOIMENTOS */}
-
-        <section className="social-proof section-pad">
-          <Reveal className="social-header">
-            <p className="eyebrow">
-              Quem vive
-            </p>
-
+          <Reveal direction="right">
             <div className="google-score">
               <span>
                 <Star
-                  size={24}
+                  size={18}
                   fill="currentColor"
                 />
                 4,9
               </span>
 
               <small>
-                Google Reviews · 286
-                avaliações
+                286 avaliações
               </small>
             </div>
           </Reveal>
+        </div>
 
-          <div className="testimonial-layout">
-            <Reveal className="testimonial-feature">
-              <div className="quote-mark small">
-                “
-              </div>
+        <div className="testimonial-layout">
+          <Reveal direction="left">
+            <div className="testimonial-feature">
+              <span className="eyebrow">
+                Depoimento
+              </span>
 
               <AnimatePresence mode="wait">
-                <motion.div
+                <motion.blockquote
                   key={activeTestimonial}
                   initial={{
                     opacity: 0,
-                    y: 14,
+                    x: reduced ? 0 : 70,
+                    clipPath: reduced
+                      ? 'inset(0)'
+                      : 'inset(0 0 0 12%)',
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    clipPath: 'inset(0)',
+                  }}
+                  exit={{
+                    opacity: 0,
+                    x: reduced ? 0 : -50,
+                  }}
+                  transition={{
+                    duration: reduced
+                      ? 0.01
+                      : 0.7,
+                    ease,
+                  }}
+                >
+                  “
+                  {visibleTestimonials[
+                    activeTestimonial
+                  ]?.text ??
+                    'Treinar aqui mudou completamente minha relação com exercício.'}
+                  ”
+                </motion.blockquote>
+              </AnimatePresence>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`author-${activeTestimonial}`}
+                  className="testimonial-author"
+                  initial={{
+                    opacity: 0,
+                    y: reduced ? 0 : 20,
                   }}
                   animate={{
                     opacity: 1,
@@ -1659,243 +2531,273 @@ function App() {
                   }}
                   exit={{
                     opacity: 0,
-                    y: -14,
+                    y: -15,
                   }}
                   transition={{
-                    duration: 0.4,
-                    ease,
+                    duration: reduced
+                      ? 0.01
+                      : 0.45,
                   }}
                 >
-                  <blockquote>
+                  <strong>
                     {
-                      testimonial.quote
+                      visibleTestimonials[
+                        activeTestimonial
+                      ]?.name ??
+                      'Aluna Áurea'
                     }
-                  </blockquote>
+                  </strong>
 
-                  <div className="testimonial-author">
-                    <strong>
-                      {testimonial.name}
-                    </strong>
-
-                    <span>
-                      {testimonial.detail}
-                    </span>
-                  </div>
+                  <span>
+                    {
+                      visibleTestimonials[
+                        activeTestimonial
+                      ]?.role ??
+                      'Aluna'
+                    }
+                  </span>
                 </motion.div>
               </AnimatePresence>
 
               <div className="testimonial-controls">
-                <button
+                <motion.button
+                  type="button"
                   onClick={() =>
-                    setActiveTestimonial(
-                      (activeTestimonial +
-                        gym.testimonials.length -
-                        1) %
-                        gym.testimonials
-                          .length
-                    )
+                    changeTestimonial(-1)
                   }
                   aria-label="Depoimento anterior"
-                  type="button"
+                  whileHover={{
+                    scale: 1.08,
+                  }}
+                  whileTap={{
+                    scale: 0.9,
+                  }}
                 >
-                  <ChevronLeft size={20} />
-                </button>
+                  <ChevronLeft size={18} />
+                </motion.button>
 
                 <span>
-                  0
-                  {activeTestimonial +
-                    1}{' '}
-                  / 0
-                  {
-                    gym.testimonials
-                      .length
-                  }
+                  {String(
+                    activeTestimonial + 1,
+                  ).padStart(2, '0')}{' '}
+                  /{' '}
+                  {String(
+                    visibleTestimonials.length,
+                  ).padStart(2, '0')}
                 </span>
 
-                <button
+                <motion.button
+                  type="button"
                   onClick={() =>
-                    setActiveTestimonial(
-                      (activeTestimonial +
-                        1) %
-                        gym.testimonials
-                          .length
-                    )
+                    changeTestimonial(1)
                   }
                   aria-label="Próximo depoimento"
-                  type="button"
+                  whileHover={{
+                    scale: 1.08,
+                  }}
+                  whileTap={{
+                    scale: 0.9,
+                  }}
                 >
-                  <ChevronRight size={20} />
-                </button>
+                  <ChevronRight size={18} />
+                </motion.button>
               </div>
-            </Reveal>
-
-            <Reveal
-              delay={0.14}
-              className="coach-image image-frame"
-            >
-              <img
-                src={gym.images.coach}
-                alt="Atleta treinando com cordas"
-                loading="lazy"
-              />
-
-              <span className="image-caption">
-                Cada corpo tem uma história
-              </span>
-            </Reveal>
-          </div>
-        </section>
-
-        {/* TRIAL */}
-
-        <section className="trial section-pad">
-          <div className="trial-shape" />
-
-          <Reveal className="trial-content">
-            <p className="eyebrow light">
-              O primeiro passo
-            </p>
-
-            <h2>
-              Conheça
-              <br />
-              <em>antes</em> de
-              <br />
-              decidir
-              <span className="accent-dot">
-                .
-              </span>
-            </h2>
-
-            <p>
-              Venha sentir o espaço,
-              conversar com um professor
-              e fazer uma aula que respeita
-              o seu momento.
-            </p>
-
-            <button
-              type="button"
-              className="button"
-              onClick={() =>
-                setShowBooking(true)
-              }
-            >
-              Agendar aula experimental
-            </button>
+            </div>
           </Reveal>
 
-          <div className="trial-image">
-            <img
-              src={gym.images.boxing}
-              alt="Treino de boxe com movimento"
-              loading="lazy"
-            />
+          <CinematicImage
+            className="image-frame coach-image"
+            src={
+              gym.images.coach ??
+              gym.images.hero
+            }
+            alt="Coach da Áurea"
+            caption="Treino com presença"
+            direction="right"
+          />
+        </div>
+      </section>
 
-            <span>
-              Comece
-              <br />
-              aqui.
-            </span>
-          </div>
+      {/* =====================================================
+          TRIAL
+      ===================================================== */}
 
-          <div className="steps">
+      <section
+        id="agendar"
+        className="trial section-pad"
+      >
+        <div className="trial-shape" />
+
+        <Reveal className="trial-content">
+          <span className="eyebrow light">
+            07 / O primeiro passo
+          </span>
+
+          <h2>
+            Conheça antes de{' '}
+            <em>decidir.</em>
+          </h2>
+
+          <p>
+            Uma primeira experiência é
+            suficiente para entender o espaço,
+            sentir o ambiente e descobrir se a
+            Áurea faz sentido para você.
+          </p>
+
+          <WhatsAppButton
+            dark
+            message="Olá! Quero conhecer a Áurea antes de decidir e gostaria de agendar uma aula."
+          >
+            Agendar uma aula
+          </WhatsAppButton>
+        </Reveal>
+
+        <CinematicImage
+          className="trial-image"
+          src={
+            gym.images.boxing ??
+            gym.images.hero
+          }
+          alt="Pessoa treinando na Áurea"
+          caption="Seu primeiro passo"
+          direction="right"
+        />
+
+        <div className="steps">
+          {[
+            ['01', 'Conheça'],
+            ['02', 'Experimente'],
+            ['03', 'Escolha'],
+            ['04', 'Evolua'],
+          ].map(
+            ([number, text], index) => (
+              <motion.div
+                key={number}
+                initial={{
+                  opacity: 0,
+                  y: reduced ? 0 : 35,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                viewport={{
+                  once: true,
+                  amount: 0.5,
+                }}
+                transition={{
+                  delay: reduced
+                    ? 0
+                    : index * 0.1,
+                  duration: reduced
+                    ? 0.01
+                    : 0.6,
+                  ease,
+                }}
+              >
+                <b>{number}</b>
+                <span>{text}</span>
+              </motion.div>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* =====================================================
+          FAQ
+      ===================================================== */}
+
+      <section className="section-pad">
+        <div className="section-heading">
+          <Reveal>
             <div>
-              <b>01</b>
-              <span>
-                Escolha seu horário
+              <span className="eyebrow">
+                08 / Perguntas
               </span>
-            </div>
-
-            <div>
-              <b>02</b>
-              <span>
-                Conheça a academia
-              </span>
-            </div>
-
-            <div>
-              <b>03</b>
-              <span>
-                Faça sua aula
-              </span>
-            </div>
-
-            <div>
-              <b>04</b>
-              <span>
-                Comece sua jornada
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ */}
-
-        <section
-          className="faq section-pad"
-          id="faq"
-        >
-          <Reveal className="section-heading">
-            <div>
-              <p className="eyebrow">
-                Perguntas
-              </p>
 
               <h2>
-                Ficou
-                <br />
-                <span>curioso?</span>
+                Antes de{' '}
+                <em>começar.</em>
               </h2>
             </div>
-
-            <p className="heading-note">
-              As respostas que você
-              <br />
-              queria encontrar.
-            </p>
           </Reveal>
 
-          <div className="faq-list">
-            {gym.faqs.map(
-              ([question, answer], index) => (
-                <div
-                  className={`faq-item ${
-                    activeFaq === index
-                      ? 'open'
-                      : ''
-                  }`}
+          <Reveal direction="right">
+            <p className="heading-note">
+              As dúvidas mais comuns antes
+              da primeira visita.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="faq-list">
+          {faqs.map(
+            (
+              [question, answer],
+              index,
+            ) => {
+              const open =
+                activeFaq === index;
+
+              return (
+                <motion.div
                   key={question}
+                  className={`faq-item ${
+                    open ? 'open' : ''
+                  }`}
+                  initial={{
+                    opacity: 0,
+                    y: reduced ? 0 : 25,
+                  }}
+                  whileInView={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  viewport={{
+                    once: true,
+                    amount: 0.5,
+                  }}
+                  transition={{
+                    delay: reduced
+                      ? 0
+                      : index * 0.05,
+                    duration: reduced
+                      ? 0.01
+                      : 0.55,
+                    ease,
+                  }}
                 >
                   <button
+                    type="button"
                     onClick={() =>
                       setActiveFaq(
-                        activeFaq === index
-                          ? null
-                          : index
+                        open ? null : index,
                       )
                     }
-                    aria-expanded={
-                      activeFaq === index
-                    }
-                    type="button"
+                    aria-expanded={open}
                   >
                     <span>
                       {question}
                     </span>
 
-                    {activeFaq === index ? (
-                      <X size={22} />
-                    ) : (
-                      <Plus size={22} />
-                    )}
+                    <motion.span
+                      animate={{
+                        rotate: open ? 45 : 0,
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        ease,
+                      }}
+                    >
+                      <Plus size={18} />
+                    </motion.span>
                   </button>
 
                   <AnimatePresence
                     initial={false}
                   >
-                    {activeFaq ===
-                      index && (
+                    {open && (
                       <motion.div
                         className="faq-answer"
                         initial={{
@@ -1911,7 +2813,9 @@ function App() {
                           opacity: 0,
                         }}
                         transition={{
-                          duration: 0.4,
+                          duration: reduced
+                            ? 0.01
+                            : 0.5,
                           ease,
                         }}
                       >
@@ -1921,217 +2825,361 @@ function App() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              )
-            )}
-          </div>
-        </section>
+                </motion.div>
+              );
+            },
+          )}
+        </div>
+      </section>
 
-        {/* LOCALIZAÇÃO */}
+      {/* =====================================================
+          LOCATION
+      ===================================================== */}
 
-        <section
-          className="location section-pad"
-          id="localizacao"
-        >
-          <Reveal className="location-top">
-            <p className="eyebrow">
-              Encontre a gente
-            </p>
+      <section
+        id="localizacao"
+        className="location section-pad"
+      >
+        <div className="location-top">
+          <Reveal>
+            <div>
+              <span className="eyebrow">
+                09 / Encontre a gente
+              </span>
+
+              <h2
+                style={{
+                  fontSize:
+                    'clamp(2.75rem, 8vw, 5.5rem)',
+                  marginTop: '1rem',
+                }}
+              >
+                Venha para a{' '}
+                <em>Áurea.</em>
+              </h2>
+            </div>
           </Reveal>
 
-          <div className="location-layout">
-            <Reveal className="location-copy">
+          <motion.div
+            className="location-giant"
+            initial={{
+              opacity: 0,
+              x: reduced ? 0 : 100,
+            }}
+            whileInView={{
+              opacity: 1,
+              x: 0,
+            }}
+            viewport={{
+              once: true,
+              amount: 0.5,
+            }}
+            transition={{
+              duration: reduced
+                ? 0.01
+                : 1,
+              ease,
+            }}
+          >
+            SP
+          </motion.div>
+        </div>
+
+        <div className="location-layout">
+          <Reveal direction="left">
+            <div className="location-copy">
+              <span className="eyebrow">
+                Pinheiros · São Paulo
+              </span>
+
               <h2>
-                Seu próximo
-                <br />
-                <span>movimento</span>
-                <br />
-                começa aqui.
+                Um espaço para treinar
+                perto da sua
+                <em> rotina.</em>
               </h2>
 
               <div className="location-details">
                 <div>
-                  <MapPin size={22} />
+                  <MapPin size={19} />
 
                   <p>
-                    Rua dos Pinheiros, 846
-                    <br />
-                    Pinheiros — São Paulo,
-                    SP
+                    Pinheiros · São Paulo
+                    · SP
                   </p>
                 </div>
 
                 <div>
-                  <Clock3 size={22} />
+                  <Clock3 size={19} />
 
                   <p>
-                    Seg a sex · 06 — 23h
+                    Seg–Sáb
                     <br />
-                    Sáb · 08 — 14h
+                    06h–22h
                   </p>
                 </div>
 
                 <div>
-                  <Navigation size={22} />
+                  <Dumbbell size={19} />
 
                   <p>
-                    Estacionamento
-                    conveniado
-                    <br />
-                    na rua ao lado
+                    Estrutura completa
+                    para treinamento.
                   </p>
                 </div>
               </div>
 
-              <div className="location-actions">
-                <a
-                  className="text-link"
-                  href="https://www.google.com/maps/search/?api=1&query=Rua+dos+Pinheiros+846+São+Paulo"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir no mapa
-                  <ChevronRight size={18} />
-                </a>
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-link"
+              >
+                Abrir no Google Maps
 
-                <button
-                  className="location-mobile-cta"
-                  type="button"
-                  onClick={() =>
-                    setShowBooking(true)
-                  }
-                >
-                  <CalendarDays
-                    size={18}
-                  />
-                  Agendar aula
-                </button>
-              </div>
-            </Reveal>
+                <MoveUpRight size={15} />
+              </a>
+            </div>
+          </Reveal>
 
-            <Reveal
-              delay={0.14}
-              className="map-art"
+          <motion.div
+            className="map-art"
+            initial={{
+              opacity: 0,
+              scale: reduced ? 1 : 0.92,
+              y: reduced ? 0 : 70,
+            }}
+            whileInView={{
+              opacity: 1,
+              scale: 1,
+              y: 0,
+            }}
+            viewport={{
+              once: true,
+              amount: 0.25,
+            }}
+            transition={{
+              duration: reduced
+                ? 0.01
+                : 1,
+              ease,
+            }}
+          >
+            <motion.div
+              className="map-grid"
+              animate={
+                reduced
+                  ? {}
+                  : {
+                      backgroundPosition: [
+                        '0px 0px',
+                        '36px 36px',
+                      ],
+                    }
+              }
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: 'linear',
+              }}
+            />
+
+            <div className="map-route">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <motion.div
+              className="map-pin"
+              animate={
+                reduced
+                  ? {}
+                  : {
+                      scale: [
+                        1,
+                        1.08,
+                        1,
+                      ],
+                    }
+              }
+              transition={{
+                duration: 2.2,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
             >
-              <div className="map-grid" />
+              <MapPin size={20} />
+            </motion.div>
 
-              <div className="map-route">
-                <span />
-                <span />
-                <span />
-              </div>
+            <div className="map-label">
+              Pinheiros
+              <br />
 
-              <div className="map-pin">
-                <Crosshair size={20} />
-              </div>
+              <small>
+                São Paulo · SP
+              </small>
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
-              <span className="map-label">
-                Áurea
-                <br />
-                <small>
-                  Pinheiros
-                </small>
-              </span>
-            </Reveal>
-          </div>
-        </section>
-      </main>
-
-      {/* =================================================
+      {/* =====================================================
           FOOTER
-      ================================================= */}
+      ===================================================== */}
 
       <footer className="footer">
         <div className="footer-top">
-          <a
+          <motion.a
+            href="#inicio"
             className="wordmark"
-            href="#top"
+            whileHover={{
+              y: -4,
+            }}
           >
             <span className="mark">
               A
             </span>
-            <span>Áurea</span>
-          </a>
 
-          <p>
-            Treine com intenção.
-            <br />
-            Viva com presença.
-          </p>
+            <span>
+              Áurea
+            </span>
+          </motion.a>
 
-          <WhatsAppButton
-            label="Falar com a gente"
-          />
+          <Reveal direction="right">
+            <p>
+              Mova o seu
+              <br />
+              mundo.
+            </p>
+          </Reveal>
         </div>
 
         <div className="footer-bottom">
           <span>
-            © {new Date().getFullYear()}{' '}
-            Áurea. Todos os movimentos
-            reservados.
+            © {new Date().getFullYear()} Áurea
           </span>
-
-          <a href="#top">
-            Voltar ao topo ↑
-          </a>
 
           <a
             href="https://instagram.com"
             target="_blank"
             rel="noreferrer"
           >
-            <Instagram size={16} />
+            <Instagram size={14} />
             Instagram
+          </a>
+
+          <a href="#inicio">
+            Voltar ao topo
+            <ArrowRight size={14} />
           </a>
         </div>
       </footer>
 
-      {/* =================================================
-          WHATSAPP FLUTUANTE
-      ================================================= */}
+      {/* =====================================================
+          FLOATING WHATSAPP
+      ===================================================== */}
 
-      <a
-        className="whatsapp-float"
-        href={whatsappUrl(
-          'Olá! Vim pelo site e gostaria de agendar uma aula experimental.'
-        )}
+      <motion.a
+        href={whatsappUrl()}
         target="_blank"
         rel="noreferrer"
-        aria-label="Falar no WhatsApp"
+        className="whatsapp-float"
+        aria-label="Falar pelo WhatsApp"
+        initial={{
+          opacity: 0,
+          scale: 0.7,
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+        }}
+        transition={{
+          delay: reduced ? 0 : 1.4,
+          duration: reduced ? 0.01 : 0.6,
+          ease,
+        }}
+        whileHover={{
+          scale: 1.1,
+        }}
+        whileTap={{
+          scale: 0.92,
+        }}
       >
-        <MessageCircle size={24} />
+        <MessageCircle size={23} />
+      </motion.a>
 
-        <span>
-          Agendar
-        </span>
-      </a>
-
-      {/* =================================================
-          MOBILE BOTTOM NAV
-      ================================================= */}
-
-      <MobileBottomNav
-        activeSection={
-          activeSection
-        }
-        onBooking={() =>
-          setShowBooking(true)
-        }
-      />
-
-      {/* =================================================
-          BOOKING
-      ================================================= */}
+      {/* =====================================================
+          BOOKING MODAL
+      ===================================================== */}
 
       <AnimatePresence>
         {showBooking && (
           <BookingModal
-            onClose={closeBooking}
+            onClose={() =>
+              setShowBooking(false)
+            }
           />
         )}
       </AnimatePresence>
+
+      {/* =====================================================
+          MOBILE BOTTOM NAV
+      ===================================================== */}
+
+      <nav className="mobile-bottom-nav">
+        {[
+          [
+            'Experiência',
+            '#experiencia',
+            Home,
+          ],
+          [
+            'Treinos',
+            '#modalidades',
+            Dumbbell,
+          ],
+          [
+            'Planos',
+            '#planos',
+            Star,
+          ],
+          [
+            'Visite',
+            '#localizacao',
+            MapPin,
+          ],
+        ].map(
+          ([
+            label,
+            href,
+            Icon,
+          ]) => {
+            const Component =
+              Icon as typeof Home;
+
+            return (
+              <a
+                key={href as string}
+                href={href as string}
+                className={
+                  activeSection ===
+                  (
+                    href as string
+                  ).slice(1)
+                    ? 'active'
+                    : ''
+                }
+              >
+                <Component size={17} />
+
+                <span>
+                  {label as string}
+                </span>
+              </a>
+            );
+          },
+        )}
+      </nav>
     </div>
   );
 }
-
-export default App;
